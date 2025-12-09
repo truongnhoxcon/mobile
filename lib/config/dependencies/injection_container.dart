@@ -2,8 +2,16 @@
 /// 
 /// Initializes and registers all dependencies using get_it.
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../data/datasources/auth_datasource.dart';
+import '../../data/repositories/auth_repository_impl.dart';
+import '../../domain/repositories/auth_repository.dart';
+import '../../presentation/blocs/blocs.dart';
 
 final sl = GetIt.instance;
 
@@ -13,38 +21,38 @@ Future<void> init() async {
   // External Dependencies
   //===========================================================================
   
-  // SharedPreferences for local storage
+  // SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
   
-  // TODO: Register Firebase instances when configured
-  // sl.registerLazySingleton(() => FirebaseAuth.instance);
-  // sl.registerLazySingleton(() => FirebaseFirestore.instance);
-  // sl.registerLazySingleton(() => FirebaseStorage.instance);
-  // sl.registerLazySingleton(() => FirebaseMessaging.instance);
+  // Firebase
+  sl.registerLazySingleton(() => FirebaseAuth.instance);
+  sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton(() => GoogleSignIn());
 
   //===========================================================================
   // Data Sources
   //===========================================================================
   
-  // TODO: Register data sources
-  // sl.registerLazySingleton<AuthDataSource>(
-  //   () => AuthDataSourceImpl(firebaseAuth: sl()),
-  // );
+  sl.registerLazySingleton<AuthDataSource>(
+    () => AuthDataSourceImpl(
+      firebaseAuth: sl(),
+      firestore: sl(),
+      googleSignIn: sl(),
+    ),
+  );
 
   //===========================================================================
   // Repositories
   //===========================================================================
   
-  // TODO: Register repositories
-  // sl.registerLazySingleton<AuthRepository>(
-  //   () => AuthRepositoryImpl(authDataSource: sl()),
-  // );
+  sl.registerLazySingleton<AuthRepository>(
+    () => AuthRepositoryImpl(dataSource: sl()),
+  );
 
   //===========================================================================
-  // BLoCs / Cubits
+  // BLoCs
   //===========================================================================
   
-  // TODO: Register BLoCs
-  // sl.registerFactory(() => AuthBloc(authRepository: sl()));
+  sl.registerFactory(() => AuthBloc(authRepository: sl()));
 }

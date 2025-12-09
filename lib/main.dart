@@ -6,12 +6,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'config/routes/app_router.dart';
 import 'config/dependencies/injection_container.dart' as di;
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'presentation/blocs/blocs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,20 +41,27 @@ class EnterpriseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(375, 812), // iPhone X design size
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (context, child) {
-        return MaterialApp.router(
-          title: 'Enterprise Mobile',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.system,
-          routerConfig: AppRouter.router,
-        );
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => di.sl<AuthBloc>()..add(AuthCheckRequested()),
+        ),
+      ],
+      child: ScreenUtilInit(
+        designSize: const Size(375, 812),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return MaterialApp.router(
+            title: 'Enterprise Mobile',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.system,
+            routerConfig: AppRouter.router,
+          );
+        },
+      ),
     );
   }
 }
