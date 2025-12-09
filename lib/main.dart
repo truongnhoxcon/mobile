@@ -3,6 +3,7 @@
 /// Main entry point for the application.
 /// This file initializes Firebase and runs the app.
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'config/routes/app_router.dart';
 import 'config/dependencies/injection_container.dart' as di;
 import 'core/theme/app_theme.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,13 +22,13 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
   
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
   // Initialize dependencies
   await di.init();
-  
-  // TODO: Initialize Firebase when configured
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
   
   runApp(const EnterpriseApp());
 }
