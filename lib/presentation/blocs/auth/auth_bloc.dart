@@ -16,6 +16,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthSignUpRequested>(_onSignUpRequested);
     on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
     on<AuthSignOutRequested>(_onSignOutRequested);
+    on<AuthResetPasswordRequested>(_onResetPasswordRequested);
 
     // Listen to auth state changes
     _authSubscription = _authRepository.authStateChanges.listen((user) {
@@ -111,5 +112,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthState.loading());
     await _authRepository.signOut();
     emit(const AuthState.unauthenticated());
+  }
+
+  Future<void> _onResetPasswordRequested(
+    AuthResetPasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthState.loading());
+    
+    final result = await _authRepository.resetPassword(event.email);
+    
+    result.fold(
+      (failure) => emit(AuthState.error(failure.message)),
+      (_) => emit(state.copyWith(status: AuthStatus.passwordResetSent)),
+    );
   }
 }

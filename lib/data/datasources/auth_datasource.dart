@@ -37,13 +37,16 @@ class AuthDataSourceImpl implements AuthDataSource {
   final FirebaseFirestore _firestore;
   final GoogleSignIn _googleSignIn;
 
+  static const String _webClientId = 
+      '435645589778-2btg5bnrg126k8nafea18qk5epdagcm8.apps.googleusercontent.com';
+
   AuthDataSourceImpl({
     firebase_auth.FirebaseAuth? firebaseAuth,
     FirebaseFirestore? firestore,
     GoogleSignIn? googleSignIn,
   })  : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
         _firestore = firestore ?? FirebaseFirestore.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+        _googleSignIn = googleSignIn ?? GoogleSignIn(clientId: _webClientId);
 
   @override
   firebase_auth.User? get currentUser => _firebaseAuth.currentUser;

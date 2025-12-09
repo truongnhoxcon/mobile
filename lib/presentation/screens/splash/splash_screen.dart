@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,18 +23,38 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeAndNavigate() async {
-    // Wait for splash animation
-    await Future.delayed(const Duration(seconds: 2));
+    // Wait for splash animation + auth state to be ready
+    await Future.delayed(const Duration(milliseconds: 1500));
     
     if (!mounted) return;
     
-    // Check auth state and navigate
-    final authState = context.read<AuthBloc>().state;
+    // Wait for Firebase Auth to restore session
+    final firebaseUser = FirebaseAuth.instance.currentUser;
     
-    if (authState.status == AuthStatus.authenticated) {
+    if (firebaseUser != null) {
+      // User is already logged in from previous session
       context.go(AppRoutes.home);
     } else {
-      context.go(AppRoutes.login);
+      // Check BLoC state (might have been updated by stream)
+      final authState = context.read<AuthBloc>().state;
+      
+      if (authState.status == AuthStatus.authenticated) {
+        context.go(AppRoutes.home);
+      } else if (authState.status == AuthStatus.loading || 
+                 authState.status == AuthStatus.initial) {
+        // Still loading, wait a bit more
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        
+        final newState = context.read<AuthBloc>().state;
+        if (newState.status == AuthStatus.authenticated) {
+          context.go(AppRoutes.home);
+        } else {
+          context.go(AppRoutes.login);
+        }
+      } else {
+        context.go(AppRoutes.login);
+      }
     }
   }
 
@@ -41,12 +62,8 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        // Handle auth state changes during splash
-        if (state.status == AuthStatus.authenticated) {
-          context.go(AppRoutes.home);
-        } else if (state.status == AuthStatus.unauthenticated) {
-          context.go(AppRoutes.login);
-        }
+        // Only navigate if we're past the initial delay
+        // The listener handles real-time auth changes
       },
       child: Scaffold(
         backgroundColor: AppColors.primary,
@@ -54,7 +71,6 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo Icon
               Container(
                 width: 120,
                 height: 120,
@@ -81,7 +97,6 @@ class _SplashScreenState extends State<SplashScreen> {
               
               const SizedBox(height: 24),
               
-              // App Name
               const Text(
                 'Enterprise Mobile',
                 style: TextStyle(
@@ -97,7 +112,6 @@ class _SplashScreenState extends State<SplashScreen> {
               
               const SizedBox(height: 8),
               
-              // Tagline
               Text(
                 'Quản lý dự án & Nhân sự',
                 style: TextStyle(
@@ -110,7 +124,6 @@ class _SplashScreenState extends State<SplashScreen> {
               
               const SizedBox(height: 48),
               
-              // Loading indicator
               SizedBox(
                 width: 24,
                 height: 24,

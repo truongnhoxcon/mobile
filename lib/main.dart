@@ -1,9 +1,6 @@
-/// Enterprise Mobile App
-/// 
-/// Main entry point for the application.
-/// This file initializes Firebase and runs the app.
-
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,6 +25,11 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Set persistence for web (keep user logged in)
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  }
   
   // Initialize dependencies
   await di.init();
@@ -58,7 +60,7 @@ class EnterpriseApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: ThemeMode.system,
-            routerConfig: AppRouter.router,
+            routerConfig: AppRouter.router(context),
           );
         },
       ),
