@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/routes/app_router.dart';
 import 'config/dependencies/injection_container.dart' as di;
@@ -20,6 +21,9 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  
+  // Initialize locale data for Vietnamese
+  await initializeDateFormatting('vi_VN', null);
   
   // Initialize Firebase
   await Firebase.initializeApp(

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "435645589778",
-    "project_id": "du-an-mobile-2025",
-    "storage_bucket": "du-an-mobile-2025.firebasestorage.app"
+    "project_number": "102252090452",
+    "project_id": "du-an-mobile-2025-v2",
+    "storage_bucket": "du-an-mobile-2025-v2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:435645589778:android:ce0db19fe4916d83ea6bcb",
+        "mobilesdk_app_id": "1:102252090452:android:405e3ca085be9b467949c1",
         "android_client_info": {
           "package_name": "com.ems.enterprise_mobile"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBJYUYnMsbZ8R14z2D9PPv9nNAd_9UaceM"
+          "current_key": "AIzaSyA7i2-4DVFN1QvdnN7mKBbhzeNj_N42i98"
         }
       ],
       "services": {

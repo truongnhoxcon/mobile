@@ -1,7 +1,3 @@
-/// Project Model
-/// 
-/// Data model for Project entity with Firestore serialization.
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/project.dart';
 
@@ -21,7 +17,6 @@ class ProjectModel extends Project {
     super.memberIds,
   });
 
-  /// Create from Firestore document
   factory ProjectModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return ProjectModel(
@@ -40,7 +35,6 @@ class ProjectModel extends Project {
     );
   }
 
-  /// Create from entity
   factory ProjectModel.fromEntity(Project project) {
     return ProjectModel(
       id: project.id,
@@ -58,7 +52,6 @@ class ProjectModel extends Project {
     );
   }
 
-  /// Convert to Firestore map
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
@@ -75,21 +68,9 @@ class ProjectModel extends Project {
     };
   }
 
-  /// Convert to entity
-  Project toEntity() {
-    return Project(
-      id: id,
-      name: name,
-      description: description,
-      imageUrl: imageUrl,
-      status: status,
-      ownerId: ownerId,
-      startDate: startDate,
-      endDate: endDate,
-      progress: progress,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      memberIds: memberIds,
-    );
-  }
+  Project toEntity() => Project(
+    id: id, name: name, description: description, imageUrl: imageUrl,
+    status: status, ownerId: ownerId, startDate: startDate, endDate: endDate,
+    progress: progress, createdAt: createdAt, updatedAt: updatedAt, memberIds: memberIds,
+  );
 }

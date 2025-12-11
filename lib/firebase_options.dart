@@ -41,46 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAwSq8gecMgrlu-U1-Dpjfkdwq6-VRxI-8',
-    appId: '1:435645589778:web:a8ccd854ba43653eea6bcb',
-    messagingSenderId: '435645589778',
-    projectId: 'du-an-mobile-2025',
-    authDomain: 'du-an-mobile-2025.firebaseapp.com',
-    storageBucket: 'du-an-mobile-2025.firebasestorage.app',
+    apiKey: 'AIzaSyDb8nP_xe4YWShXaB8QRSmOBjaxtfEQY7g',
+    appId: '1:102252090452:web:044717666c9b6df67949c1',
+    messagingSenderId: '102252090452',
+    projectId: 'du-an-mobile-2025-v2',
+    authDomain: 'du-an-mobile-2025-v2.firebaseapp.com',
+    storageBucket: 'du-an-mobile-2025-v2.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBJYUYnMsbZ8R14z2D9PPv9nNAd_9UaceM',
-    appId: '1:435645589778:android:ce0db19fe4916d83ea6bcb',
-    messagingSenderId: '435645589778',
-    projectId: 'du-an-mobile-2025',
-    storageBucket: 'du-an-mobile-2025.firebasestorage.app',
+    apiKey: 'AIzaSyA7i2-4DVFN1QvdnN7mKBbhzeNj_N42i98',
+    appId: '1:102252090452:android:405e3ca085be9b467949c1',
+    messagingSenderId: '102252090452',
+    projectId: 'du-an-mobile-2025-v2',
+    storageBucket: 'du-an-mobile-2025-v2.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCQBdwGkI7_-ErcsF_4CTmVD9-ZrHznChk',
-    appId: '1:435645589778:ios:b15775ba882ab89cea6bcb',
-    messagingSenderId: '435645589778',
-    projectId: 'du-an-mobile-2025',
-    storageBucket: 'du-an-mobile-2025.firebasestorage.app',
+    apiKey: 'AIzaSyD4xMpQ_aaxYLUGabrHyIxHYIVNvFA3Pus',
+    appId: '1:102252090452:ios:e9bf9266ea0358c47949c1',
+    messagingSenderId: '102252090452',
+    projectId: 'du-an-mobile-2025-v2',
+    storageBucket: 'du-an-mobile-2025-v2.firebasestorage.app',
     iosBundleId: 'com.ems.enterpriseMobile',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCQBdwGkI7_-ErcsF_4CTmVD9-ZrHznChk',
-    appId: '1:435645589778:ios:b15775ba882ab89cea6bcb',
-    messagingSenderId: '435645589778',
-    projectId: 'du-an-mobile-2025',
-    storageBucket: 'du-an-mobile-2025.firebasestorage.app',
+    apiKey: 'AIzaSyD4xMpQ_aaxYLUGabrHyIxHYIVNvFA3Pus',
+    appId: '1:102252090452:ios:e9bf9266ea0358c47949c1',
+    messagingSenderId: '102252090452',
+    projectId: 'du-an-mobile-2025-v2',
+    storageBucket: 'du-an-mobile-2025-v2.firebasestorage.app',
     iosBundleId: 'com.ems.enterpriseMobile',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAwSq8gecMgrlu-U1-Dpjfkdwq6-VRxI-8',
-    appId: '1:435645589778:web:8b509bf4b2097bf0ea6bcb',
-    messagingSenderId: '435645589778',
-    projectId: 'du-an-mobile-2025',
-    authDomain: 'du-an-mobile-2025.firebaseapp.com',
-    storageBucket: 'du-an-mobile-2025.firebasestorage.app',
+    apiKey: 'AIzaSyDb8nP_xe4YWShXaB8QRSmOBjaxtfEQY7g',
+    appId: '1:102252090452:web:4542744ba39b65767949c1',
+    messagingSenderId: '102252090452',
+    projectId: 'du-an-mobile-2025-v2',
+    authDomain: 'du-an-mobile-2025-v2.firebaseapp.com',
+    storageBucket: 'du-an-mobile-2025-v2.firebasestorage.app',
   );
+
 }

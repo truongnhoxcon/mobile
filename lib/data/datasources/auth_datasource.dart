@@ -38,7 +38,7 @@ class AuthDataSourceImpl implements AuthDataSource {
   final GoogleSignIn _googleSignIn;
 
   static const String _webClientId = 
-      '435645589778-2btg5bnrg126k8nafea18qk5epdagcm8.apps.googleusercontent.com';
+      '102252090452-ioe3qtvk315vktgaagvuqk40t0glub0c.apps.googleusercontent.com';
 
   AuthDataSourceImpl({
     firebase_auth.FirebaseAuth? firebaseAuth,

@@ -8,7 +8,8 @@ import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/home/home_screen.dart';
 import '../../presentation/screens/splash/splash_screen.dart';
-import '../../presentation/screens/projects/projects_screen.dart';
+import '../../presentation/screens/projects/project_list_screen.dart';
+import '../../presentation/screens/projects/project_detail_screen.dart';
 import '../../presentation/screens/hr/hr_screen.dart';
 import '../../presentation/screens/chat/chat_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
@@ -104,7 +105,15 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.projects,
           name: 'projects',
-          builder: (context, state) => const ProjectsScreen(),
+          builder: (context, state) => const ProjectListScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.projectDetail,
+          name: 'projectDetail',
+          builder: (context, state) {
+            final projectId = state.pathParameters['id'] ?? '';
+            return ProjectDetailScreen(projectId: projectId);
+          },
         ),
         
         // HR
