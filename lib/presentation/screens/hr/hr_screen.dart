@@ -331,25 +331,28 @@ class _CheckInTabState extends State<_CheckInTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _currentTime,
-                    style: TextStyle(fontSize: 48.sp, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  Text(_currentDate, style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentTime,
+                      style: TextStyle(fontSize: 42.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    Text(_currentDate, style: TextStyle(color: Colors.white70, fontSize: 13.sp)),
+                  ],
+                ),
               ),
+              SizedBox(width: 8.w),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(16.r),
                 ),
                 child: Text(
                   statusText,
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.sp),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.sp),
                 ),
               ),
             ],
@@ -613,9 +616,12 @@ class _CheckInTabState extends State<_CheckInTab> {
       children: [
         Icon(icon, size: 20.w, color: color),
         SizedBox(width: 12.w),
-        Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp)),
-        const Spacer(),
-        Flexible(
+        Expanded(
+          flex: 2,
+          child: Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp)),
+        ),
+        Expanded(
+          flex: 2,
           child: Text(
             value,
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),

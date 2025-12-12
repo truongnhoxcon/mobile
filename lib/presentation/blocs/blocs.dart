@@ -10,3 +10,6 @@ export 'project/project_state.dart';
 export 'issue/issue_bloc.dart';
 export 'issue/issue_event.dart';
 export 'issue/issue_state.dart';
+export 'chat/chat_bloc.dart';
+export 'chat/chat_event.dart';
+export 'chat/chat_state.dart';

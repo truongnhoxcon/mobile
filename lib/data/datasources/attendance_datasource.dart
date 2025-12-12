@@ -122,17 +122,25 @@ class AttendanceDataSourceImpl implements AttendanceDataSource {
 
   @override
   Future<List<AttendanceModel>> getMonthlyAttendance(String userId, int year, int month) async {
-    final startDate = DateTime(year, month, 1);
-    final endDate = DateTime(year, month + 1, 0);
-
+    // Query by userId only, then filter by date in memory
+    // This avoids needing a composite index
     final snapshot = await _attendanceRef
         .where('userId', isEqualTo: userId)
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .orderBy('date', descending: true)
         .get();
 
-    return snapshot.docs.map((doc) => AttendanceModel.fromFirestore(doc)).toList();
+    final startDate = DateTime(year, month, 1);
+    final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    final filtered = snapshot.docs
+        .map((doc) => AttendanceModel.fromFirestore(doc))
+        .where((a) => a.date.isAfter(startDate.subtract(const Duration(days: 1))) && 
+                      a.date.isBefore(endDate.add(const Duration(days: 1))))
+        .toList();
+
+    // Sort by date descending
+    filtered.sort((a, b) => b.date.compareTo(a.date));
+    
+    return filtered;
   }
 
   @override

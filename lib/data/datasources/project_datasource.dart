@@ -37,11 +37,18 @@ class ProjectDataSourceImpl implements ProjectDataSource {
 
   @override
   Future<List<ProjectModel>> getProjectsByUser(String userId) async {
+    // Query by memberIds only, sort in memory to avoid composite index
     final snapshot = await _projectsRef
         .where('memberIds', arrayContains: userId)
-        .orderBy('createdAt', descending: true)
         .get();
-    return snapshot.docs.map((doc) => ProjectModel.fromFirestore(doc)).toList();
+    final projects = snapshot.docs.map((doc) => ProjectModel.fromFirestore(doc)).toList();
+    // Sort by createdAt descending in memory (handle nullable)
+    projects.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime(2000);
+      final bDate = b.createdAt ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+    return projects;
   }
 
   @override

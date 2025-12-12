@@ -14,15 +14,20 @@ class ProjectListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get current user from AuthBloc
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.user?.id ?? '';
+    
     return BlocProvider(
-      create: (_) => di.sl<ProjectBloc>()..add(const ProjectLoadAll()),
-      child: const _ProjectListContent(),
+      create: (_) => di.sl<ProjectBloc>()..add(ProjectLoadByUser(userId)),
+      child: _ProjectListContent(userId: userId),
     );
   }
 }
 
 class _ProjectListContent extends StatefulWidget {
-  const _ProjectListContent();
+  final String userId;
+  const _ProjectListContent({required this.userId});
 
   @override
   State<_ProjectListContent> createState() => _ProjectListContentState();
@@ -42,7 +47,8 @@ class _ProjectListContentState extends State<_ProjectListContent> {
             tooltip: 'Lọc theo trạng thái',
             onSelected: (status) {
               setState(() => _selectedFilter = status);
-              context.read<ProjectBloc>().add(ProjectLoadAll(filterStatus: status));
+              // Load user's projects, will filter by status in UI
+              context.read<ProjectBloc>().add(ProjectLoadByUser(widget.userId));
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: null, child: Text('Tất cả')),
@@ -72,18 +78,23 @@ class _ProjectListContentState extends State<_ProjectListContent> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (state.projects.isEmpty) {
+          // Filter by status in UI if selected
+          final filteredProjects = _selectedFilter == null
+              ? state.projects
+              : state.projects.where((p) => p.status == _selectedFilter).toList();
+
+          if (filteredProjects.isEmpty) {
             return _buildEmptyState();
           }
 
           return RefreshIndicator(
             onRefresh: () async {
-              context.read<ProjectBloc>().add(ProjectLoadAll(filterStatus: _selectedFilter));
+              context.read<ProjectBloc>().add(ProjectLoadByUser(widget.userId));
             },
             child: ListView.builder(
               padding: EdgeInsets.all(16.w),
-              itemCount: state.projects.length,
-              itemBuilder: (context, index) => _buildProjectCard(context, state.projects[index]),
+              itemCount: filteredProjects.length,
+              itemBuilder: (context, index) => _buildProjectCard(context, filteredProjects[index]),
             ),
           );
         },

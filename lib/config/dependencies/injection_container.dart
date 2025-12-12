@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import '../../data/datasources/auth_datasource.dart';
 import '../../data/datasources/attendance_datasource.dart';
 import '../../data/datasources/project_datasource.dart';
 import '../../data/datasources/issue_datasource.dart';
+import '../../data/datasources/chat_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../presentation/blocs/blocs.dart';
@@ -24,6 +26,7 @@ Future<void> init() async {
   
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton(() => FirebaseStorage.instance);
   sl.registerLazySingleton(() => GoogleSignIn());
 
   //===========================================================================
@@ -50,6 +53,10 @@ Future<void> init() async {
     () => IssueDataSourceImpl(firestore: sl()),
   );
 
+  sl.registerLazySingleton<ChatDataSource>(
+    () => ChatDataSourceImpl(firestore: sl(), storage: sl()),
+  );
+
   //===========================================================================
   // Repositories
   //===========================================================================
@@ -66,4 +73,5 @@ Future<void> init() async {
   sl.registerFactory(() => AttendanceBloc(dataSource: sl()));
   sl.registerFactory(() => ProjectBloc(dataSource: sl()));
   sl.registerFactory(() => IssueBloc(dataSource: sl()));
+  sl.registerFactory(() => ChatBloc(dataSource: sl()));
 }

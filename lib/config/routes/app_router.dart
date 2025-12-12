@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../domain/entities/chat_room.dart';
 import '../../presentation/blocs/blocs.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
@@ -11,7 +12,8 @@ import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/screens/projects/project_list_screen.dart';
 import '../../presentation/screens/projects/project_detail_screen.dart';
 import '../../presentation/screens/hr/hr_screen.dart';
-import '../../presentation/screens/chat/chat_screen.dart';
+import '../../presentation/screens/chat/chat_list_screen.dart';
+import '../../presentation/screens/chat/chat_room_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
 
 /// App Route Names
@@ -127,7 +129,16 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.chat,
           name: 'chat',
-          builder: (context, state) => const ChatScreen(),
+          builder: (context, state) => const ChatListScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.chatRoom,
+          name: 'chatRoom',
+          builder: (context, state) {
+            final roomId = state.pathParameters['roomId'] ?? '';
+            final room = state.extra as ChatRoom?;
+            return ChatRoomScreen(roomId: roomId, room: room);
+          },
         ),
         
         // Profile
