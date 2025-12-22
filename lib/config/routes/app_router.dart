@@ -8,6 +8,8 @@ import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/home/home_screen.dart';
+import '../../presentation/screens/home/hr_home_screen.dart';
+import '../../presentation/screens/home/pm_home_screen.dart';
 import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/screens/projects/project_list_screen.dart';
 import '../../presentation/screens/projects/project_detail_screen.dart';
@@ -15,6 +17,7 @@ import '../../presentation/screens/hr/hr_screen.dart';
 import '../../presentation/screens/chat/chat_list_screen.dart';
 import '../../presentation/screens/chat/chat_room_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
+import '../../presentation/screens/ai_chat/ai_chat_screen.dart';
 
 /// App Route Names
 class AppRoutes {
@@ -33,6 +36,7 @@ class AppRoutes {
   static const String salary = '/hr/salary';
   static const String chat = '/chat';
   static const String chatRoom = '/chat/:roomId';
+  static const String aiChat = '/ai-chat';
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String notifications = '/notifications';
@@ -100,7 +104,20 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.home,
           name: 'home',
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) {
+            // Check user role and return appropriate home screen
+            final authState = context.read<AuthBloc>().state;
+            final isHRManager = authState.user?.isHRManager ?? false;
+            final isProjectManager = authState.user?.isProjectManager ?? false;
+            
+            if (isHRManager) {
+              return const HRHomeScreen();
+            }
+            if (isProjectManager) {
+              return const PMHomeScreen();
+            }
+            return const HomeScreen();
+          },
         ),
         
         // Projects
@@ -139,6 +156,13 @@ class AppRouter {
             final room = state.extra as ChatRoom?;
             return ChatRoomScreen(roomId: roomId, room: room);
           },
+        ),
+        
+        // AI ChatBot
+        GoRoute(
+          path: AppRoutes.aiChat,
+          name: 'aiChat',
+          builder: (context, state) => const AIChatScreen(),
         ),
         
         // Profile

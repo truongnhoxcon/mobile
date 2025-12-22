@@ -10,16 +10,28 @@ import '../../../core/theme/app_colors.dart';
 import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/attendance.dart' as entity;
 import '../../blocs/blocs.dart';
+import 'hr_main_screen.dart';
 
+/// HR Screen - Role-based routing
+/// HR Manager: Shows management dashboard
+/// Employee: Shows check-in/check-out
 class HRScreen extends StatelessWidget {
   const HRScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final user = authState.user;
+    
+    // HR Manager gets management screen
+    if (user?.isHRManager == true) {
+      return const HRMainScreen();
+    }
+    
+    // Regular employee gets attendance screen
     return BlocProvider(
       create: (_) {
-        final authState = context.read<AuthBloc>().state;
-        final userId = authState.user?.id ?? '';
+        final userId = user?.id ?? '';
         return di.sl<AttendanceBloc>()..add(AttendanceLoadToday(userId));
       },
       child: const _HRScreenContent(),

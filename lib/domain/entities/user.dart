@@ -4,13 +4,14 @@
 
 import 'package:equatable/equatable.dart';
 
-/// User roles in the system (2 roles only)
+/// User roles in the system
 enum UserRole {
   admin,
   employee,
+  hrManager,
+  projectManager,
 }
 
-/// Extension to convert UserRole to/from string
 extension UserRoleExtension on UserRole {
   String get value {
     switch (this) {
@@ -18,6 +19,10 @@ extension UserRoleExtension on UserRole {
         return 'ADMIN';
       case UserRole.employee:
         return 'EMPLOYEE';
+      case UserRole.hrManager:
+        return 'HR_MANAGER';
+      case UserRole.projectManager:
+        return 'PROJECT_MANAGER';
     }
   }
 
@@ -27,6 +32,10 @@ extension UserRoleExtension on UserRole {
         return 'Quản trị viên';
       case UserRole.employee:
         return 'Nhân viên';
+      case UserRole.hrManager:
+        return 'HR Manager';
+      case UserRole.projectManager:
+        return 'Project Manager';
     }
   }
 
@@ -34,6 +43,11 @@ extension UserRoleExtension on UserRole {
     switch (value.toUpperCase()) {
       case 'ADMIN':
         return UserRole.admin;
+      case 'HR_MANAGER':
+        return UserRole.hrManager;
+      case 'PROJECT_MANAGER':
+      case 'MANAGER_PROJECT':
+        return UserRole.projectManager;
       case 'EMPLOYEE':
       default:
         return UserRole.employee;
@@ -71,6 +85,12 @@ class User extends Equatable {
 
   /// Check if user is admin
   bool get isAdmin => role == UserRole.admin;
+
+  /// Check if user is HR Manager
+  bool get isHRManager => role == UserRole.hrManager;
+
+  /// Check if user is Project Manager
+  bool get isProjectManager => role == UserRole.projectManager;
 
   /// Creates a copy of the user with updated fields
   User copyWith({

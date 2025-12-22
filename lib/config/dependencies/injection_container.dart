@@ -10,11 +10,18 @@ import '../../data/datasources/attendance_datasource.dart';
 import '../../data/datasources/project_datasource.dart';
 import '../../data/datasources/issue_datasource.dart';
 import '../../data/datasources/chat_datasource.dart';
+import '../../data/datasources/ai_chat_datasource.dart';
+import '../../data/datasources/hr_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/repositories/hr_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/repositories/hr_repository.dart';
 import '../../presentation/blocs/blocs.dart';
 
 final sl = GetIt.instance;
+
+// TODO: Replace with your Gemini API key from https://aistudio.google.com/apikey
+const String _geminiApiKey = 'AIzaSyB3YU08XM9fbwhP-QXnU2EvCBQGgbsisL0';
 
 Future<void> init() async {
   //===========================================================================
@@ -57,12 +64,24 @@ Future<void> init() async {
     () => ChatDataSourceImpl(firestore: sl(), storage: sl()),
   );
 
+  sl.registerLazySingleton<AIChatDataSource>(
+    () => AIChatDataSourceImpl(apiKey: _geminiApiKey, prefs: sl()),
+  );
+
+  sl.registerLazySingleton<HRDataSource>(
+    () => HRDataSourceImpl(firestore: sl()),
+  );
+
   //===========================================================================
   // Repositories
   //===========================================================================
   
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(dataSource: sl()),
+  );
+
+  sl.registerLazySingleton<HRRepository>(
+    () => HRRepositoryImpl(dataSource: sl()),
   );
 
   //===========================================================================
@@ -74,4 +93,6 @@ Future<void> init() async {
   sl.registerFactory(() => ProjectBloc(dataSource: sl()));
   sl.registerFactory(() => IssueBloc(dataSource: sl()));
   sl.registerFactory(() => ChatBloc(dataSource: sl()));
+  sl.registerFactory(() => AIChatBloc(dataSource: sl()));
+  sl.registerFactory(() => HRBloc(repository: sl()));
 }

@@ -3,11 +3,13 @@
 /// Main dashboard with navigation to all modules.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
+import '../../blocs/blocs.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,6 +85,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push(AppRoutes.aiChat),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.smart_toy, color: Colors.white),
+      ),
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
@@ -156,9 +163,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickActionsGrid() {
+    // Get user role from AuthBloc
+    final authState = context.read<AuthBloc>().state;
+    final isHRManager = authState.user?.isHRManager ?? false;
+
     final actions = [
       _QuickAction('Dự án', Icons.folder_open_rounded, AppColors.primary, AppRoutes.projects),
-      _QuickAction('Chấm công', Icons.access_time_rounded, AppColors.success, AppRoutes.hr),
+      // HR Manager sees "Quản lý HR", Employee sees "Chấm công"
+      isHRManager 
+          ? _QuickAction('Quản lý HR', Icons.admin_panel_settings_rounded, AppColors.success, AppRoutes.hr)
+          : _QuickAction('Chấm công', Icons.access_time_rounded, AppColors.success, AppRoutes.hr),
       _QuickAction('Tin nhắn', Icons.chat_bubble_rounded, AppColors.accent, AppRoutes.chat),
       _QuickAction('Hồ sơ', Icons.person_rounded, AppColors.secondary, AppRoutes.profile),
     ];
@@ -310,6 +324,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavBar() {
+    // Get user role from AuthBloc
+    final authState = context.read<AuthBloc>().state;
+    final isHRManager = authState.user?.isHRManager ?? false;
+
     return BottomNavigationBar(
       currentIndex: _currentIndex,
       onTap: (index) {
@@ -335,12 +353,15 @@ class _HomeScreenState extends State<HomeScreen> {
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textSecondary,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Trang chủ'),
-        BottomNavigationBarItem(icon: Icon(Icons.folder_rounded), label: 'Dự án'),
-        BottomNavigationBarItem(icon: Icon(Icons.work_rounded), label: 'HR'),
-        BottomNavigationBarItem(icon: Icon(Icons.chat_rounded), label: 'Chat'),
-        BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Hồ sơ'),
+      items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Trang chủ'),
+        const BottomNavigationBarItem(icon: Icon(Icons.folder_rounded), label: 'Dự án'),
+        BottomNavigationBarItem(
+          icon: Icon(isHRManager ? Icons.admin_panel_settings_rounded : Icons.access_time_rounded), 
+          label: isHRManager ? 'Quản lý HR' : 'Chấm công',
+        ),
+        const BottomNavigationBarItem(icon: Icon(Icons.chat_rounded), label: 'Chat'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Hồ sơ'),
       ],
     );
   }

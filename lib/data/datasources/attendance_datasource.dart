@@ -112,12 +112,9 @@ class AttendanceDataSourceImpl implements AttendanceDataSource {
       'status': status.value,
     });
 
-    return existing.copyWith(
-      checkOutTime: now,
-      checkOutLocation: location,
-      workingHours: workingHours,
-      status: status,
-    ) as AttendanceModel;
+    // Fetch updated document to ensure fresh data
+    final updatedDoc = await _attendanceRef.doc(attendanceId).get();
+    return AttendanceModel.fromFirestore(updatedDoc);
   }
 
   @override

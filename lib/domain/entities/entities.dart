@@ -5,3 +5,7 @@ export 'attendance.dart';
 export 'leave_request.dart';
 export 'chat_room.dart';
 export 'message.dart';
+export 'employee.dart';
+export 'department.dart';
+export 'position.dart';
+export 'hr_dashboard_stats.dart';
