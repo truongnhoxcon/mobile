@@ -18,6 +18,8 @@ import '../../presentation/screens/chat/chat_list_screen.dart';
 import '../../presentation/screens/chat/chat_room_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
 import '../../presentation/screens/ai_chat/ai_chat_screen.dart';
+import '../../presentation/screens/pm/create_project_screen.dart';
+import '../../presentation/screens/pm/create_task_screen.dart';
 
 /// App Route Names
 class AppRoutes {
@@ -40,6 +42,8 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String notifications = '/notifications';
+  static const String pmCreateProject = '/pm/create-project';
+  static const String pmCreateTask = '/pm/create-task';
 }
 
 /// App Router
@@ -105,18 +109,21 @@ class AppRouter {
           path: AppRoutes.home,
           name: 'home',
           builder: (context, state) {
-            // Check user role and return appropriate home screen
-            final authState = context.read<AuthBloc>().state;
-            final isHRManager = authState.user?.isHRManager ?? false;
-            final isProjectManager = authState.user?.isProjectManager ?? false;
-            
-            if (isHRManager) {
-              return const HRHomeScreen();
-            }
-            if (isProjectManager) {
-              return const PMHomeScreen();
-            }
-            return const HomeScreen();
+            // Use BlocBuilder to react to auth state changes
+            return BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                final isHRManager = authState.user?.isHRManager ?? false;
+                final isProjectManager = authState.user?.isProjectManager ?? false;
+                
+                if (isHRManager) {
+                  return const HRHomeScreen();
+                }
+                if (isProjectManager) {
+                  return const PMHomeScreen();
+                }
+                return const HomeScreen();
+              },
+            );
           },
         ),
         
@@ -170,6 +177,23 @@ class AppRouter {
           path: AppRoutes.profile,
           name: 'profile',
           builder: (context, state) => const ProfileScreen(),
+        ),
+        
+        // PM Create Project
+        GoRoute(
+          path: AppRoutes.pmCreateProject,
+          name: 'pmCreateProject',
+          builder: (context, state) => const CreateProjectScreen(),
+        ),
+        
+        // PM Create Task
+        GoRoute(
+          path: AppRoutes.pmCreateTask,
+          name: 'pmCreateTask',
+          builder: (context, state) {
+            final projectId = state.uri.queryParameters['projectId'];
+            return CreateTaskScreen(projectId: projectId);
+          },
         ),
       ],
       

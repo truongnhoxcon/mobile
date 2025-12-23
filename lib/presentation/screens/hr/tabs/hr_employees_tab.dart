@@ -123,27 +123,48 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
 
               final employees = state.employees;
               if (employees.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Không có nhân viên',
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          color: AppColors.textSecondary,
-                        ),
+                return Stack(
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
+                          SizedBox(height: 16.h),
+                          Text(
+                            'Không có nhân viên',
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddEmployeeDialog(context),
+                            icon: const Icon(Icons.person_add),
+                            label: const Text('Thêm nhân viên'),
+                          ),
+                          SizedBox(height: 8.h),
+                          TextButton.icon(
+                            onPressed: () => _pickAndImportCSV(context),
+                            icon: Icon(Icons.upload_file, color: AppColors.success),
+                            label: Text('Import từ CSV', style: TextStyle(color: AppColors.success)),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 16.h),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddEmployeeDialog(context),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Thêm nhân viên'),
+                    ),
+                    // FAB for import CSV
+                    Positioned(
+                      bottom: 16.h,
+                      right: 16.w,
+                      child: FloatingActionButton.small(
+                        heroTag: 'import_empty',
+                        onPressed: () => _pickAndImportCSV(context),
+                        backgroundColor: AppColors.success,
+                        child: const Icon(Icons.upload_file, color: Colors.white),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               }
 

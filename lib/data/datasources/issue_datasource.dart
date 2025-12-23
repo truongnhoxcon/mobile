@@ -23,22 +23,37 @@ class IssueDataSourceImpl implements IssueDataSource {
   CollectionReference<Map<String, dynamic>> get _issuesRef =>
       _firestore.collection('issues');
 
+
   @override
   Future<List<IssueModel>> getIssuesByProject(String projectId) async {
+    // Query only by projectId, sort in memory to avoid composite index
     final snapshot = await _issuesRef
         .where('projectId', isEqualTo: projectId)
-        .orderBy('createdAt', descending: true)
         .get();
-    return snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+    final issues = snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+    // Sort by createdAt descending in memory
+    issues.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime(2000);
+      final bDate = b.createdAt ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+    return issues;
   }
 
   @override
   Future<List<IssueModel>> getIssuesByAssignee(String userId) async {
+    // Query only by assigneeId, sort in memory to avoid composite index
     final snapshot = await _issuesRef
         .where('assigneeId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .get();
-    return snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+    final issues = snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+    // Sort by createdAt descending in memory
+    issues.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime(2000);
+      final bDate = b.createdAt ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+    return issues;
   }
 
   @override

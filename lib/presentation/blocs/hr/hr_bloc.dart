@@ -262,8 +262,9 @@ class HRBloc extends Bloc<HREvent, HRState> {
         for (int i = 0; i < headers.length && i < row.length; i++) {
           employeeMap[headers[i]] = row[i]?.toString() ?? '';
         }
-        // Only add if has hoTen or name
-        if ((employeeMap['hoTen'] ?? employeeMap['ho_ten'] ?? employeeMap['name'] ?? '').toString().isNotEmpty) {
+        // Only add if has hoTen or name (headers are lowercase)
+        final hoTen = employeeMap['hoten'] ?? employeeMap['ho_ten'] ?? employeeMap['name'] ?? '';
+        if (hoTen.toString().isNotEmpty) {
           employeesData.add(employeeMap);
         }
       }

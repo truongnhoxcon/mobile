@@ -1,7 +1,6 @@
 /// App Colors
 /// 
-/// Defines the color palette for the application.
-/// Based on a modern enterprise design system.
+/// Color palette based on DACN Mobile design (purple/pink gradient theme)
 
 import 'package:flutter/material.dart';
 
@@ -9,29 +8,49 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Colors
-  static const Color primary = Color(0xFF2563EB);       // Blue 600
-  static const Color primaryLight = Color(0xFF60A5FA);  // Blue 400
-  static const Color primaryDark = Color(0xFF1D4ED8);   // Blue 700
-
-  // Secondary Colors
-  static const Color secondary = Color(0xFF7C3AED);     // Violet 600
-  static const Color secondaryLight = Color(0xFFA78BFA); // Violet 400
+  // Primary Colors (Purple from DACN)
+  static const Color primary = Color(0xFF8E44AD);        // Main purple
+  static const Color primaryLight = Color(0xFFA569BD);   // Light purple
+  static const Color primaryDark = Color(0xFF7D3C98);    // Dark purple
+  
+  // Secondary Colors (Pink gradient end)
+  static const Color secondary = Color(0xFFD7BDE2);      // Light pink/lavender
+  static const Color secondaryLight = Color(0xFFE8DAEF); // Very light pink
 
   // Accent Colors
-  static const Color accent = Color(0xFF06B6D4);        // Cyan 500
-  static const Color success = Color(0xFF22C55E);       // Green 500
-  static const Color warning = Color(0xFFF59E0B);       // Amber 500
-  static const Color error = Color(0xFFEF4444);         // Red 500
-  static const Color info = Color(0xFF3B82F6);          // Blue 500
+  static const Color accent = Color(0xFFFF9500);         // Orange for check-in button
+  static const Color accentLight = Color(0xFFFFB347);    // Light orange
+  static const Color accentGradientEnd = Color(0xFFFFD700); // Yellow/Gold
 
-  // Neutral Colors - Light Mode
-  static const Color background = Color(0xFFF8FAFC);    // Slate 50
-  static const Color surface = Color(0xFFFFFFFF);       // White
-  static const Color border = Color(0xFFE2E8F0);        // Slate 200
-  static const Color textPrimary = Color(0xFF0F172A);   // Slate 900
-  static const Color textSecondary = Color(0xFF64748B); // Slate 500
-  static const Color textHint = Color(0xFF94A3B8);      // Slate 400
+  // Status Colors
+  static const Color success = Color(0xFF27AE60);        // Green
+  static const Color warning = Color(0xFFF39C12);        // Orange/Amber
+  static const Color error = Color(0xFFE74C3C);          // Red
+  static const Color info = Color(0xFF3498DB);           // Blue
+
+  // Chart/Stats Colors
+  static const Color chartBlue = Color(0xFF5DADE2);      // Light blue for charts
+  static const Color chartBlueDark = Color(0xFF2980B9);  // Dark blue for charts
+  static const Color statGreen = Color(0xFF2ECC71);      // Stat badge green
+  static const Color statOrange = Color(0xFFF39C12);     // Stat badge orange  
+  static const Color statRed = Color(0xFFE74C3C);        // Stat badge red
+  static const Color statPurple = Color(0xFF8B5CF6);     // Stat badge purple
+
+  // Background Colors
+  static const Color background = Color(0xFFF8F9FA);     // Light gray background
+  static const Color backgroundDark = Color(0xFF1A1A2E); // Dark mode background
+  static const Color surface = Color(0xFFFFFFFF);        // White surface
+  static const Color cardBackground = Color(0xFFFFFFFF); // White cards
+
+  // Text Colors
+  static const Color textPrimary = Color(0xFF2C3E50);    // Dark blue-gray
+  static const Color textSecondary = Color(0xFF7F8C8D);  // Medium gray
+  static const Color textHint = Color(0xFFBDC3C7);       // Light gray
+  static const Color textOnPrimary = Color(0xFFFFFFFF);  // White text
+
+  // Border Colors
+  static const Color border = Color(0xFFE5E8EB);         // Light border
+  static const Color borderLight = Color(0xFFF0F3F5);    // Very light border
 
   // Neutral Colors - Dark Mode
   static const Color darkBackground = Color(0xFF0F172A); // Slate 900
@@ -59,9 +78,33 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
+  static const LinearGradient headerGradient = LinearGradient(
+    colors: [Color(0xFF9B59B6), Color(0xFFBB8FCE)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  static const LinearGradient sidebarGradient = LinearGradient(
+    colors: [Color(0xFF8E44AD), Color(0xFFD7BDE2)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [secondary, accent],
+    colors: [Color(0xFFFF9500), Color(0xFFFF6B00)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient checkOutGradient = LinearGradient(
+    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient chartGradient = LinearGradient(
+    colors: [chartBlue, chartBlueDark],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
   );
 }

@@ -41,31 +41,40 @@ class _HRMainScreenState extends State<HRMainScreen>
         ..add(const HRLoadDashboard())
         ..add(const HRLoadEmployees())
         ..add(const HRLoadLeaveRequests()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Quản lý Nhân sự',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
+      child: BlocListener<HRBloc, HRState>(
+        listenWhen: (previous, current) => 
+          previous.status != current.status && 
+          current.status == HRStatus.actionSuccess,
+        listener: (context, state) {
+          // Auto-reload dashboard when employee added/imported
+          context.read<HRBloc>().add(const HRLoadDashboard());
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Quản lý Nhân sự',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
+            ),
+            bottom: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
+              tabs: const [
+                Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard)),
+                Tab(text: 'Nhân viên', icon: Icon(Icons.people)),
+                Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
+              ],
+            ),
           ),
-          bottom: TabBar(
+          body: TabBarView(
             controller: _tabController,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primary,
-            tabs: const [
-              Tab(text: 'Dashboard', icon: Icon(Icons.dashboard)),
-              Tab(text: 'Nhân viên', icon: Icon(Icons.people)),
-              Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
+            children: const [
+              HRDashboardTab(),
+              HREmployeesTab(),
+              HRLeavesTab(),
             ],
           ),
-        ),
-        body: TabBarView(
-          controller: _tabController,
-          children: const [
-            HRDashboardTab(),
-            HREmployeesTab(),
-            HRLeavesTab(),
-          ],
         ),
       ),
     );

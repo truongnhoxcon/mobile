@@ -10,6 +10,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../config/routes/app_router.dart';
+import '../../../../domain/entities/project.dart';
+import '../../../../data/datasources/project_datasource.dart';
 import '../../../blocs/blocs.dart';
 
 /// PM Dashboard Tab - Dashboard + Tasks + Projects
@@ -22,11 +24,50 @@ class PMDashboardTab extends StatefulWidget {
 
 class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // Projects state
+  List<Project> _projects = [];
+  bool _loadingProjects = true;
+  String? _projectsError;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    setState(() {
+      _loadingProjects = true;
+      _projectsError = null;
+    });
+    
+    try {
+      final authState = context.read<AuthBloc>().state;
+      final userId = authState.user?.id ?? '';
+      
+      if (userId.isEmpty) {
+        throw Exception('User not authenticated');
+      }
+      
+      final datasource = ProjectDataSourceImpl();
+      // Only get projects where user is a member
+      final projectModels = await datasource.getProjectsByUser(userId);
+      if (mounted) {
+        setState(() {
+          _projects = projectModels.map((m) => m.toEntity()).toList();
+          _loadingProjects = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _projectsError = e.toString();
+          _loadingProjects = false;
+        });
+      }
+    }
   }
 
   @override
@@ -150,7 +191,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
               SizedBox(width: 12.w),
               ElevatedButton.icon(
                 onPressed: () {
-                  // TODO: Create task
+                  context.push(AppRoutes.pmCreateTask);
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Tạo'),
@@ -265,9 +306,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
 
   Widget _buildProjectsTab() {
     return RefreshIndicator(
-      onRefresh: () async {
-        // TODO: Reload projects
-      },
+      onRefresh: _loadProjects,
       child: ListView(
         padding: EdgeInsets.all(16.w),
         children: [
@@ -275,8 +314,11 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Create project
+                onPressed: () async {
+                  final result = await context.push(AppRoutes.pmCreateProject);
+                  if (result == true) {
+                    _loadProjects(); // Reload after creating
+                  }
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Tạo dự án'),
@@ -286,43 +328,156 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
                 ),
               ),
               const Spacer(),
-              DropdownButton<String>(
-                value: 'all',
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('Tất cả')),
-                  DropdownMenuItem(value: 'mine', child: Text('Của tôi')),
-                ],
-                onChanged: (value) {},
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadProjects,
               ),
             ],
           ),
           SizedBox(height: 16.h),
           
-          // Projects List - Placeholder
-          _buildProjectCard(
-            'Dự án Mobile App',
-            'Ứng dụng quản lý doanh nghiệp',
-            'Đang thực hiện',
-            AppColors.primary,
-            0.65,
-          ),
-          _buildProjectCard(
-            'Dự án Web Dashboard',
-            'Dashboard quản trị',
-            'Hoàn thành',
-            AppColors.success,
-            1.0,
-          ),
-          _buildProjectCard(
-            'Dự án API Backend',
-            'RESTful API services',
-            'Lập kế hoạch',
-            AppColors.warning,
-            0.2,
-          ),
+          // Loading state
+          if (_loadingProjects)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            )),
+          
+          // Error state
+          if (_projectsError != null)
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, size: 48.w, color: AppColors.error),
+                  SizedBox(height: 8.h),
+                  Text('Lỗi: $_projectsError', style: TextStyle(color: AppColors.error)),
+                  TextButton(onPressed: _loadProjects, child: const Text('Thử lại')),
+                ],
+              ),
+            ),
+          
+          // Empty state
+          if (!_loadingProjects && _projectsError == null && _projects.isEmpty)
+            Center(
+              child: Column(
+                children: [
+                  SizedBox(height: 32.h),
+                  Icon(Icons.folder_off, size: 64.w, color: AppColors.textSecondary),
+                  SizedBox(height: 16.h),
+                  Text('Chưa có dự án nào', style: TextStyle(fontSize: 16.sp, color: AppColors.textSecondary)),
+                  SizedBox(height: 8.h),
+                  TextButton.icon(
+                    onPressed: () => context.push(AppRoutes.pmCreateProject),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tạo dự án đầu tiên'),
+                  ),
+                ],
+              ),
+            ),
+          
+          // Projects List
+          if (!_loadingProjects && _projectsError == null)
+            ..._projects.map((project) => _buildProjectCardFromEntity(project)).toList(),
         ],
       ),
     );
+  }
+
+  Widget _buildProjectCardFromEntity(Project project) {
+    final statusColor = _getStatusColor(project.status);
+    final progress = project.progress / 100.0;
+    
+    return GestureDetector(
+      onTap: () {
+        context.push('/projects/${project.id}');
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.folder, color: Colors.amber, size: 24.w),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    project.name,
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    project.status.displayName,
+                    style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.bold, color: statusColor),
+                  ),
+                ),
+              ],
+            ),
+            if (project.description != null && project.description!.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              Text(
+                project.description!,
+                style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: AppColors.border,
+                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                      minHeight: 6.h,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Text(
+                  '${project.progress}%',
+                  style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: statusColor),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(ProjectStatus status) {
+    switch (status) {
+      case ProjectStatus.planning:
+        return AppColors.warning;
+      case ProjectStatus.active:
+        return AppColors.primary;
+      case ProjectStatus.onHold:
+        return Colors.orange;
+      case ProjectStatus.completed:
+        return AppColors.success;
+      case ProjectStatus.archived:
+        return AppColors.textSecondary;
+    }
   }
 
   Widget _buildProjectCard(String name, String description, String status, Color statusColor, double progress) {
