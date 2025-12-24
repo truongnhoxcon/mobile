@@ -21,7 +21,7 @@ import '../../presentation/blocs/blocs.dart';
 final sl = GetIt.instance;
 
 // TODO: Replace with your Gemini API key from https://aistudio.google.com/apikey
-const String _geminiApiKey = 'AIzaSyB3YU08XM9fbwhP-QXnU2EvCBQGgbsisL0';
+const String _geminiApiKey = 'AIzaSyA2ReGQIJ29vLlLqJXyW-ASeOFaZpgaCJI';
 
 Future<void> init() async {
   //===========================================================================

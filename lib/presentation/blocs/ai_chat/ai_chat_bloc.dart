@@ -19,6 +19,8 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState> {
     on<AIChatLoadHistory>(_onLoadHistory);
     on<AIChatSendMessage>(_onSendMessage);
     on<AIChatClearHistory>(_onClearHistory);
+    on<AIChatSetUserContext>(_onSetUserContext);
+    on<AIChatRefreshContext>(_onRefreshContext);
   }
 
   Future<void> _onLoadHistory(
@@ -105,5 +107,27 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState> {
     _dataSource.startNewConversation();
     await _dataSource.clearHistory();
     emit(const AIChatState(status: AIChatStatus.initial));
+  }
+
+  Future<void> _onSetUserContext(
+    AIChatSetUserContext event,
+    Emitter<AIChatState> emit,
+  ) async {
+    _dataSource.setUserContext(event.user);
+    // Automatically refresh system data after setting user
+    await _dataSource.refreshSystemContext();
+  }
+
+  Future<void> _onRefreshContext(
+    AIChatRefreshContext event,
+    Emitter<AIChatState> emit,
+  ) async {
+    emit(state.copyWith(status: AIChatStatus.loading));
+    try {
+      await _dataSource.refreshSystemContext();
+      emit(state.copyWith(status: AIChatStatus.loaded));
+    } catch (e) {
+      emit(state.copyWith(status: AIChatStatus.loaded));
+    }
   }
 }

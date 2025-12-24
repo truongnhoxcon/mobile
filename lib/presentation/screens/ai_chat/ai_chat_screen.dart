@@ -13,14 +13,27 @@ import '../../../domain/entities/ai_chat_message.dart';
 import '../../blocs/ai_chat/ai_chat_bloc.dart';
 import '../../blocs/ai_chat/ai_chat_event.dart';
 import '../../blocs/ai_chat/ai_chat_state.dart';
+import '../../blocs/auth/auth_bloc.dart';
 
 class AIChatScreen extends StatelessWidget {
   const AIChatScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Get current user from AuthBloc
+    final authState = context.read<AuthBloc>().state;
+    final currentUser = authState.user;
+
     return BlocProvider(
-      create: (_) => di.sl<AIChatBloc>()..add(const AIChatLoadHistory()),
+      create: (_) {
+        final bloc = di.sl<AIChatBloc>();
+        // Set user context if available
+        if (currentUser != null) {
+          bloc.add(AIChatSetUserContext(currentUser));
+        }
+        bloc.add(const AIChatLoadHistory());
+        return bloc;
+      },
       child: const _AIChatContent(),
     );
   }
@@ -90,6 +103,16 @@ class _AIChatContentState extends State<_AIChatContent> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Cập nhật dữ liệu',
+            onPressed: () {
+              context.read<AIChatBloc>().add(const AIChatRefreshContext());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đang cập nhật dữ liệu hệ thống...')),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: 'Xóa lịch sử',
@@ -174,10 +197,11 @@ class _AIChatContentState extends State<_AIChatContent> {
 
   Widget _buildSuggestionChips() {
     final suggestions = [
-      'Hướng dẫn check-in',
-      'Cách tạo dự án mới',
-      'Xem lịch sử chấm công',
-      'Tính năng nổi bật',
+      'Tôi có bao nhiêu dự án?',
+      'Công việc được giao cho tôi',
+      'Thống kê công việc của tôi',
+      'Tiến độ dự án hiện tại',
+      'Hướng dẫn tạo task mới',
     ];
 
     return Wrap(

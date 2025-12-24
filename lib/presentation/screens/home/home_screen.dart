@@ -12,6 +12,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
+import '../../../config/dependencies/injection_container.dart' as di;
+import '../../../domain/entities/attendance.dart';
 import '../../blocs/blocs.dart';
 import '../../widgets/common/gradient_header.dart';
 import '../../widgets/common/stat_card.dart';
@@ -32,13 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _lateDays = 4;
   double _totalHours = 97;
   
-  // Attendance
-  bool _hasCheckedIn = false;
-  bool _hasCheckedOut = false;
-  String? _checkInTime;
-  String? _checkOutTime;
-  bool _isCheckingIn = false;
-  
   // Time
   String _currentTime = '';
   Timer? _timer;
@@ -47,6 +42,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    _loadTodayAttendance();
+  }
+
+  void _loadTodayAttendance() {
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.user?.id ?? '';
+    if (userId.isNotEmpty) {
+      context.read<AttendanceBloc>().add(AttendanceLoadToday(userId));
+    }
   }
 
   @override
@@ -121,6 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push(AppRoutes.aiChat),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.smart_toy, color: Colors.white),
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -153,76 +162,96 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAttendanceCard() {
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return BlocBuilder<AttendanceBloc, AttendanceState>(
+      builder: (context, attendanceState) {
+        final attendance = attendanceState.todayAttendance;
+        final hasCheckedIn = attendance?.checkInTime != null;
+        final hasCheckedOut = attendance?.checkOutTime != null;
+        
+        String checkInTime = '--:--';
+        String checkOutTime = '--:--';
+        
+        if (attendance != null) {
+          if (attendance.checkInTime != null) {
+            checkInTime = DateFormat('HH:mm').format(attendance.checkInTime!);
+          }
+          if (attendance.checkOutTime != null) {
+            checkOutTime = DateFormat('HH:mm').format(attendance.checkOutTime!);
+          }
+        }
+
+        return Container(
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Title
-          Row(
+          child: Column(
             children: [
-              Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12.r),
+              // Title
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Icon(Icons.access_time_filled, color: AppColors.primary, size: 22.w),
+                  ),
+                  SizedBox(width: 12.w),
+                  Text(
+                    'Chấm công hôm nay',
+                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(DateTime.now()),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: 20.h),
+              
+              // Current time
+              Text(
+                _currentTime,
+                style: TextStyle(
+                  fontSize: 42.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  letterSpacing: 2,
                 ),
-                child: Icon(Icons.access_time_filled, color: AppColors.primary, size: 22.w),
               ),
-              SizedBox(width: 12.w),
-              Text(
-                'Chấm công hôm nay',
-                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+              
+              SizedBox(height: 20.h),
+              
+              // Check in/out times
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildTimeColumn('Giờ vào', checkInTime, AppColors.success),
+                  Container(width: 1, height: 40.h, color: Colors.grey.shade200),
+                  _buildTimeColumn('Giờ ra', checkOutTime, AppColors.error),
+                ],
               ),
-              const Spacer(),
-              Text(
-                DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
-              ),
+              
+              SizedBox(height: 20.h),
+              
+              // Check in/out button
+              _buildCheckButton(attendanceState, hasCheckedIn, hasCheckedOut),
             ],
           ),
-          
-          SizedBox(height: 20.h),
-          
-          // Current time
-          Text(
-            _currentTime,
-            style: TextStyle(
-              fontSize: 42.sp,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-              letterSpacing: 2,
-            ),
-          ),
-          
-          SizedBox(height: 20.h),
-          
-          // Check in/out times
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildTimeColumn('Giờ vào', _checkInTime ?? '--:--', AppColors.success),
-              Container(width: 1, height: 40.h, color: Colors.grey.shade200),
-              _buildTimeColumn('Giờ ra', _checkOutTime ?? '--:--', AppColors.error),
-            ],
-          ),
-          
-          SizedBox(height: 20.h),
-          
-          // Check in/out button
-          _buildCheckButton(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -243,16 +272,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCheckButton() {
+  Widget _buildCheckButton(AttendanceState state, bool hasCheckedIn, bool hasCheckedOut) {
     String buttonText;
     GradientType gradientType;
     IconData buttonIcon;
+    bool isLoading = state.status == AttendanceBlocStatus.checkingIn || 
+                     state.status == AttendanceBlocStatus.checkingOut;
     
-    if (_hasCheckedOut) {
+    if (hasCheckedOut) {
       buttonText = 'ĐÃ HOÀN THÀNH';
       gradientType = GradientType.disabled;
       buttonIcon = Icons.check_circle;
-    } else if (_hasCheckedIn) {
+    } else if (hasCheckedIn) {
       buttonText = 'CHECK-OUT';
       gradientType = GradientType.checkOut;
       buttonIcon = Icons.logout;
@@ -266,32 +297,25 @@ class _HomeScreenState extends State<HomeScreen> {
       text: buttonText,
       icon: buttonIcon,
       gradientType: gradientType,
-      isLoading: _isCheckingIn,
-      isDisabled: _hasCheckedOut,
-      onPressed: _handleCheckInOut,
+      isLoading: isLoading,
+      isDisabled: hasCheckedOut,
+      onPressed: () => _handleCheckInOut(hasCheckedIn, state.todayAttendance?.id),
     );
   }
 
-  void _handleCheckInOut() {
-    // TODO: Implement actual check-in/out with API
-    setState(() {
-      _isCheckingIn = true;
-    });
+  void _handleCheckInOut(bool hasCheckedIn, String? attendanceId) {
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.user?.id ?? '';
     
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _isCheckingIn = false;
-          if (!_hasCheckedIn) {
-            _hasCheckedIn = true;
-            _checkInTime = DateFormat('HH:mm').format(DateTime.now());
-          } else {
-            _hasCheckedOut = true;
-            _checkOutTime = DateFormat('HH:mm').format(DateTime.now());
-          }
-        });
-      }
-    });
+    if (userId.isEmpty) return;
+    
+    if (!hasCheckedIn) {
+      // Check-in
+      context.read<AttendanceBloc>().add(AttendanceCheckIn(userId));
+    } else if (attendanceId != null) {
+      // Check-out
+      context.read<AttendanceBloc>().add(AttendanceCheckOut(attendanceId));
+    }
   }
 
   Widget _buildQuickActions() {
@@ -428,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
               _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc'),
               _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat'),
-              _buildNavItem(3, Icons.notifications_rounded, Icons.notifications_outlined, 'Thông báo'),
+              _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công'),
               _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Hồ sơ'),
             ],
           ),
@@ -497,13 +521,13 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _selectedIndex = 0);
         break;
       case 1: // Công việc
-        context.push(AppRoutes.hr);
+        context.push(AppRoutes.employeeTasks);
         break;
       case 2: // Chat
         context.push(AppRoutes.chat);
         break;
-      case 3: // Notifications
-        // TODO: Navigate to notifications
+      case 3: // Chấm công
+        context.push(AppRoutes.hr);
         break;
       case 4: // Profile
         context.push(AppRoutes.profile);

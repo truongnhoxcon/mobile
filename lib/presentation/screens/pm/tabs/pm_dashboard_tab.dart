@@ -11,7 +11,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../config/routes/app_router.dart';
 import '../../../../domain/entities/project.dart';
+import '../../../../domain/entities/issue.dart';
 import '../../../../data/datasources/project_datasource.dart';
+import '../../../../data/datasources/issue_datasource.dart';
 import '../../../blocs/blocs.dart';
 
 /// PM Dashboard Tab - Dashboard + Tasks + Projects
@@ -24,17 +26,27 @@ class PMDashboardTab extends StatefulWidget {
 
 class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
   
   // Projects state
   List<Project> _projects = [];
   bool _loadingProjects = true;
   String? _projectsError;
+  
+  // My Tasks state
+  List<Issue> _myTasks = [];
+  List<Issue> _filteredTasks = [];
+  bool _loadingTasks = true;
+  String? _tasksError;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _searchController.addListener(_onSearchChanged);
     _loadProjects();
+    _loadMyTasks();
   }
 
   Future<void> _loadProjects() async {
@@ -70,9 +82,60 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
     }
   }
 
+  Future<void> _loadMyTasks() async {
+    setState(() {
+      _loadingTasks = true;
+      _tasksError = null;
+    });
+    
+    try {
+      final authState = context.read<AuthBloc>().state;
+      final userId = authState.user?.id ?? '';
+      
+      if (userId.isEmpty) {
+        throw Exception('User not authenticated');
+      }
+      
+      final datasource = IssueDataSourceImpl();
+      final issueModels = await datasource.getIssuesByAssignee(userId);
+      if (mounted) {
+        setState(() {
+          _myTasks = issueModels.map((m) => m.toEntity()).toList();
+          _filteredTasks = _myTasks;
+          _loadingTasks = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _tasksError = e.toString();
+          _loadingTasks = false;
+        });
+      }
+    }
+  }
+
+  void _onSearchChanged() {
+    _filterTasks(_searchController.text);
+  }
+
+  void _filterTasks(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredTasks = _myTasks;
+      } else {
+        _filteredTasks = _myTasks
+            .where((task) => task.title.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -164,87 +227,191 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
 
   Widget _buildMyTasksTab() {
     return RefreshIndicator(
-      onRefresh: () async {
-        // TODO: Reload tasks
-      },
-      child: ListView(
-        padding: EdgeInsets.all(16.w),
-        children: [
-          // Toolbar
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Tìm kiếm tác vụ...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      onRefresh: _loadMyTasks,
+      child: _loadingTasks
+          ? const Center(child: CircularProgressIndicator())
+          : _tasksError != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 48.w, color: AppColors.error),
+                      SizedBox(height: 16.h),
+                      Text('Lỗi: $_tasksError', style: TextStyle(color: AppColors.error)),
+                      SizedBox(height: 16.h),
+                      ElevatedButton(
+                        onPressed: _loadMyTasks,
+                        child: const Text('Thử lại'),
+                      ),
+                    ],
                   ),
+                )
+              : ListView(
+                  padding: EdgeInsets.all(16.w),
+                  children: [
+                    // Toolbar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm tác vụ...',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                      },
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: AppColors.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            context.push(AppRoutes.pmCreateTask);
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Tạo'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16.h),
+                    
+                    // Tasks List
+                    if (_filteredTasks.isEmpty && _searchQuery.isEmpty)
+                      Center(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 40.h),
+                            Icon(Icons.task_alt, size: 64.w, color: AppColors.textSecondary),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Chưa có công việc nào được giao',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_filteredTasks.isEmpty && _searchQuery.isNotEmpty)
+                      Center(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 40.h),
+                            Icon(Icons.search_off, size: 64.w, color: AppColors.textSecondary),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Không tìm thấy "$_searchQuery"',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ..._filteredTasks.map((task) => _buildRealTaskItem(task)).toList(),
+                  ],
                 ),
+    );
+  }
+
+  Widget _buildRealTaskItem(Issue task) {
+    Color statusColor;
+    String statusText;
+    switch (task.status) {
+      case IssueStatus.todo:
+        statusColor = AppColors.warning;
+        statusText = 'Chờ xử lý';
+        break;
+      case IssueStatus.inProgress:
+        statusColor = AppColors.primary;
+        statusText = 'Đang làm';
+        break;
+      case IssueStatus.done:
+        statusColor = AppColors.success;
+        statusText = 'Hoàn thành';
+        break;
+      default:
+        statusColor = AppColors.textSecondary;
+        statusText = 'Không xác định';
+    }
+    
+    final dueDate = task.dueDate != null 
+        ? DateFormat('dd/MM/yyyy').format(task.dueDate!)
+        : 'Chưa có';
+
+    return InkWell(
+      onTap: () {
+        context.push('/task/${task.id}');
+      },
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Row(
+                    children: [
+                      Icon(Icons.schedule, size: 14.w, color: AppColors.textSecondary),
+                      SizedBox(width: 4.w),
+                      Text(dueDate, style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ],
               ),
-              SizedBox(width: 12.w),
-              ElevatedButton.icon(
-                onPressed: () {
-                  context.push(AppRoutes.pmCreateTask);
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Tạo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          
-          // Tasks List - Placeholder
-          _buildTaskItem(
-            'Thiết kế UI Dashboard',
-            'Dự án A',
-            'Đang thực hiện',
-            AppColors.primary,
-            '25/12/2024',
-          ),
-          _buildTaskItem(
-            'Tích hợp API Backend',
-            'Dự án B',
-            'Chờ xử lý',
-            AppColors.warning,
-            '28/12/2024',
-          ),
-          _buildTaskItem(
-            'Review code PR #123',
-            'Dự án A',
-            'Hoàn thành',
-            AppColors.success,
-            '20/12/2024',
-          ),
-          
-          // Empty state if no tasks
-          Center(
-            child: Column(
-              children: [
-                SizedBox(height: 40.h),
-                Icon(Icons.task_alt, size: 64.w, color: AppColors.textSecondary),
-                SizedBox(height: 16.h),
-                Text(
-                  'Đây là demo, dữ liệu thực từ API',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-                ),
-              ],
             ),
-          ),
-        ],
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildTaskItem(String title, String project, String status, Color statusColor, String dueDate) {
     return Container(

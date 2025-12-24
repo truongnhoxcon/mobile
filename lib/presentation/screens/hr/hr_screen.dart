@@ -52,7 +52,7 @@ class _HRScreenContentState extends State<_HRScreenContent> with SingleTickerPro
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -65,16 +65,15 @@ class _HRScreenContentState extends State<_HRScreenContent> with SingleTickerPro
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Nhân sự', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp)),
+        title: Text('Chấm công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp)),
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
           indicatorColor: AppColors.primary,
           tabs: const [
-            Tab(text: 'Chấm công', icon: Icon(Icons.fingerprint)),
+            Tab(text: 'Hôm nay', icon: Icon(Icons.fingerprint)),
             Tab(text: 'Lịch sử', icon: Icon(Icons.history)),
-            Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
           ],
         ),
       ),
@@ -83,7 +82,6 @@ class _HRScreenContentState extends State<_HRScreenContent> with SingleTickerPro
         children: const [
           _CheckInTab(),
           _HistoryTab(),
-          _LeaveRequestTab(),
         ],
       ),
     );

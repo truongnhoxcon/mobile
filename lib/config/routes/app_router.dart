@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../dependencies/injection_container.dart';
+
 import '../../domain/entities/chat_room.dart';
 import '../../presentation/blocs/blocs.dart';
 import '../../presentation/screens/auth/login_screen.dart';
@@ -20,6 +22,8 @@ import '../../presentation/screens/profile/profile_screen.dart';
 import '../../presentation/screens/ai_chat/ai_chat_screen.dart';
 import '../../presentation/screens/pm/create_project_screen.dart';
 import '../../presentation/screens/pm/create_task_screen.dart';
+import '../../presentation/screens/pm/task_detail_screen.dart';
+import '../../presentation/screens/employee/employee_tasks_screen.dart';
 
 /// App Route Names
 class AppRoutes {
@@ -44,6 +48,8 @@ class AppRoutes {
   static const String notifications = '/notifications';
   static const String pmCreateProject = '/pm/create-project';
   static const String pmCreateTask = '/pm/create-task';
+  static const String taskDetail = '/task/:id';
+  static const String employeeTasks = '/employee/tasks';
 }
 
 /// App Router
@@ -59,10 +65,19 @@ class AppRouter {
       redirect: (context, state) {
         final authState = context.read<AuthBloc>().state;
         final isAuthenticated = authState.status == AuthStatus.authenticated;
+        final isLoading = authState.status == AuthStatus.loading;
         final isAuthRoute = state.matchedLocation == AppRoutes.login ||
             state.matchedLocation == AppRoutes.register ||
             state.matchedLocation == AppRoutes.forgotPassword ||
             state.matchedLocation == AppRoutes.splash;
+
+        // If still loading, don't redirect
+        if (isLoading) {
+          print('[Router] Auth loading, no redirect');
+          return null;
+        }
+
+        print('[Router] Path: ${state.matchedLocation}, Auth: $isAuthenticated');
 
         // If not authenticated and trying to access protected route
         if (!isAuthenticated && !isAuthRoute) {
@@ -112,6 +127,17 @@ class AppRouter {
             // Use BlocBuilder to react to auth state changes
             return BlocBuilder<AuthBloc, AuthState>(
               builder: (context, authState) {
+                // If user data is not yet loaded, show loading and trigger refresh
+                if (authState.user == null && authState.status == AuthStatus.authenticated) {
+                  // Trigger user data refresh
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    context.read<AuthBloc>().add(AuthCheckRequested());
+                  });
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                
                 final isHRManager = authState.user?.isHRManager ?? false;
                 final isProjectManager = authState.user?.isProjectManager ?? false;
                 
@@ -121,7 +147,13 @@ class AppRouter {
                 if (isProjectManager) {
                   return const PMHomeScreen();
                 }
-                return const HomeScreen();
+                return BlocProvider(
+                  create: (_) {
+                    final userId = authState.user?.id ?? '';
+                    return sl<AttendanceBloc>()..add(AttendanceLoadToday(userId));
+                  },
+                  child: const HomeScreen(),
+                );
               },
             );
           },
@@ -194,6 +226,23 @@ class AppRouter {
             final projectId = state.uri.queryParameters['projectId'];
             return CreateTaskScreen(projectId: projectId);
           },
+        ),
+        
+        // Task Detail
+        GoRoute(
+          path: AppRoutes.taskDetail,
+          name: 'taskDetail',
+          builder: (context, state) {
+            final taskId = state.pathParameters['id'] ?? '';
+            return TaskDetailScreen(taskId: taskId);
+          },
+        ),
+        
+        // Employee Tasks
+        GoRoute(
+          path: AppRoutes.employeeTasks,
+          name: 'employeeTasks',
+          builder: (context, state) => const EmployeeTasksScreen(),
         ),
       ],
       
