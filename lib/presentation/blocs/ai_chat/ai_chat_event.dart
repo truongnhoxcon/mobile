@@ -2,6 +2,7 @@
 
 import 'package:equatable/equatable.dart';
 import '../../../domain/entities/user.dart';
+import '../../../domain/entities/ai_action.dart';
 
 abstract class AIChatEvent extends Equatable {
   const AIChatEvent();
@@ -43,4 +44,61 @@ class AIChatSetUserContext extends AIChatEvent {
 /// Refresh system data context
 class AIChatRefreshContext extends AIChatEvent {
   const AIChatRefreshContext();
+}
+
+/// Execute an approved action
+class AIChatExecuteAction extends AIChatEvent {
+  final AIAction action;
+
+  const AIChatExecuteAction(this.action);
+
+  @override
+  List<Object?> get props => [action];
+}
+
+/// Reject a pending action
+class AIChatRejectAction extends AIChatEvent {
+  final AIAction action;
+
+  const AIChatRejectAction(this.action);
+
+  @override
+  List<Object?> get props => [action];
+}
+
+/// Clear pending actions
+class AIChatClearActions extends AIChatEvent {
+  const AIChatClearActions();
+}
+
+// ========== Session Events ==========
+
+/// Load all sessions
+class AIChatLoadSessions extends AIChatEvent {
+  const AIChatLoadSessions();
+}
+
+/// Create a new session
+class AIChatCreateSession extends AIChatEvent {
+  const AIChatCreateSession();
+}
+
+/// Switch to a different session
+class AIChatSwitchSession extends AIChatEvent {
+  final String sessionId;
+
+  const AIChatSwitchSession(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
+/// Delete a session
+class AIChatDeleteSession extends AIChatEvent {
+  final String sessionId;
+
+  const AIChatDeleteSession(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
 }

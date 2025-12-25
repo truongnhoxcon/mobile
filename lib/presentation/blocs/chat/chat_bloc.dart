@@ -69,9 +69,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (room == null) {
         final newRoom = ChatRoom(
           id: '',
-          name: event.otherUserName,
+          name: '${event.currentUserName} & ${event.otherUserName}',
           type: ChatRoomType.private,
           memberIds: [event.currentUserId, event.otherUserId],
+          memberNames: {
+            event.currentUserId: event.currentUserName,
+            event.otherUserId: event.otherUserName,
+          },
           createdBy: event.currentUserId,
           createdAt: DateTime.now(),
         );

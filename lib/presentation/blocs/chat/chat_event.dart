@@ -24,11 +24,12 @@ class ChatSubscribeRooms extends ChatEvent {
 
 class ChatCreatePrivateRoom extends ChatEvent {
   final String currentUserId;
+  final String currentUserName;
   final String otherUserId;
   final String otherUserName;
-  const ChatCreatePrivateRoom(this.currentUserId, this.otherUserId, this.otherUserName);
+  const ChatCreatePrivateRoom(this.currentUserId, this.currentUserName, this.otherUserId, this.otherUserName);
   @override
-  List<Object?> get props => [currentUserId, otherUserId, otherUserName];
+  List<Object?> get props => [currentUserId, currentUserName, otherUserId, otherUserName];
 }
 
 class ChatCreateGroupRoom extends ChatEvent {

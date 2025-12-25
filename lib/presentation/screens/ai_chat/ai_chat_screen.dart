@@ -1,6 +1,6 @@
 /// AI Chat Screen
 /// 
-/// ChatBot interface for interacting with Google Gemini AI.
+/// ChatBot interface for interacting with Groq AI.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +10,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/ai_chat_message.dart';
+import '../../../domain/entities/ai_action.dart';
 import '../../blocs/ai_chat/ai_chat_bloc.dart';
 import '../../blocs/ai_chat/ai_chat_event.dart';
 import '../../blocs/ai_chat/ai_chat_state.dart';
@@ -97,21 +98,16 @@ class _AIChatContentState extends State<_AIChatContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('AI Assistant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp)),
-                Text('Powered by Gemini', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                Text('Powered by Groq', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
               ],
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Cập nhật dữ liệu',
-            onPressed: () {
-              context.read<AIChatBloc>().add(const AIChatRefreshContext());
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đang cập nhật dữ liệu hệ thống...')),
-              );
-            },
+            icon: const Icon(Icons.history),
+            tooltip: 'Lịch sử chat',
+            onPressed: () => _showChatHistory(context),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -134,16 +130,24 @@ class _AIChatContentState extends State<_AIChatContent> {
                   return _buildWelcomeScreen();
                 }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: state.messages.length + (state.isSending ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == state.messages.length && state.isSending) {
-                      return _buildTypingIndicator();
-                    }
-                    return _buildMessageBubble(state.messages[index]);
-                  },
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.all(16.w),
+                        itemCount: state.messages.length + (state.isSending ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == state.messages.length && state.isSending) {
+                            return _buildTypingIndicator();
+                          }
+                          return _buildMessageBubble(state.messages[index]);
+                        },
+                      ),
+                    ),
+                    if (state.hasPendingActions)
+                      _buildActionCards(state.pendingActions),
+                  ],
                 );
               },
             ),
@@ -441,5 +445,396 @@ class _AIChatContentState extends State<_AIChatContent> {
         ],
       ),
     );
+  }
+
+  void _showChatHistory(BuildContext context) {
+    final bloc = context.read<AIChatBloc>();
+    final state = bloc.state;
+    final sessions = state.sessions;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.r),
+            topRight: Radius.circular(20.r),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: EdgeInsets.symmetric(vertical: 12.h),
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: Row(
+                children: [
+                  Icon(Icons.history, color: AppColors.primary, size: 24.w),
+                  SizedBox(width: 12.w),
+                  Text(
+                    'Lịch sử đoạn hội thoại',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  // New conversation button
+                  IconButton(
+                    icon: Icon(Icons.add_circle, color: AppColors.primary, size: 28.w),
+                    tooltip: 'Cuộc trò chuyện mới',
+                    onPressed: () {
+                      bloc.add(const AIChatCreateSession());
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 16.h),
+            // Sessions list
+            Expanded(
+              child: sessions.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.forum_outlined, 
+                            size: 64.w, 
+                            color: Colors.grey.shade300),
+                          SizedBox(height: 16.h),
+                          Text(
+                            'Chưa có cuộc trò chuyện nào',
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              bloc.add(const AIChatCreateSession());
+                              Navigator.pop(ctx);
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Bắt đầu trò chuyện'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      itemCount: sessions.length,
+                      itemBuilder: (context, index) {
+                        final session = sessions[index];
+                        final isActive = session.id == state.currentSessionId;
+                        return Container(
+                          margin: EdgeInsets.only(bottom: 8.h),
+                          decoration: BoxDecoration(
+                            color: isActive 
+                              ? AppColors.primary.withValues(alpha: 0.1) 
+                              : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: isActive ? AppColors.primary : AppColors.border,
+                              width: isActive ? 2 : 1,
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                            leading: Container(
+                              padding: EdgeInsets.all(8.w),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Icon(Icons.chat, color: AppColors.primary, size: 20.w),
+                            ),
+                            title: Text(
+                              session.preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${session.messages.length} tin nhắn • ${session.timeAgo}',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              icon: Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20.w),
+                              onSelected: (value) {
+                                if (value == 'open') {
+                                  bloc.add(AIChatSwitchSession(session.id));
+                                  Navigator.pop(ctx);
+                                } else if (value == 'delete') {
+                                  bloc.add(AIChatDeleteSession(session.id));
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem<String>(
+                                  value: 'open',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.open_in_new, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Mở'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 18, color: AppColors.error),
+                                      const SizedBox(width: 8),
+                                      Text('Xóa', style: TextStyle(color: AppColors.error)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              bloc.add(AIChatSwitchSession(session.id));
+                              Navigator.pop(ctx);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    return '${time.day}/${time.month}/${time.year}';
+  }
+
+  Widget _buildActionCards(List<AIAction> actions) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: 280.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flash_on, color: AppColors.warning, size: 20.w),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  'Hành động được đề xuất (${actions.length}):',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.sp,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          // Scrollable action list
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: actions.map((action) => _buildActionCard(action)).toList(),
+              ),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          // Bulk action buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    for (final action in actions) {
+                      context.read<AIChatBloc>().add(AIChatRejectAction(action));
+                    }
+                  },
+                  icon: Icon(Icons.close, size: 18.w),
+                  label: const Text('Từ chối tất cả'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    for (final action in actions) {
+                      context.read<AIChatBloc>().add(AIChatExecuteAction(action));
+                      // Small delay between executions
+                      await Future.delayed(const Duration(milliseconds: 300));
+                    }
+                  },
+                  icon: Icon(Icons.check_circle, size: 18.w),
+                  label: const Text('Thực hiện tất cả'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(AIAction action) {
+    final isExecuting = context.watch<AIChatBloc>().state.isExecutingAction;
+    
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(
+                  _getActionIcon(action.type),
+                  color: AppColors.primary,
+                  size: 20.w,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action.type.displayName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      action.description,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: isExecuting ? null : () {
+                  context.read<AIChatBloc>().add(AIChatRejectAction(action));
+                },
+                icon: Icon(Icons.close, size: 18.w),
+                label: const Text('Hủy'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              ElevatedButton.icon(
+                onPressed: isExecuting ? null : () {
+                  context.read<AIChatBloc>().add(AIChatExecuteAction(action));
+                },
+                icon: isExecuting 
+                  ? SizedBox(
+                      width: 18.w,
+                      height: 18.w,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(Icons.check, size: 18.w),
+                label: Text(isExecuting ? 'Đang xử lý...' : 'Thực hiện'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getActionIcon(AIActionType type) {
+    switch (type) {
+      case AIActionType.createTask:
+        return Icons.add_task;
+      case AIActionType.assignTask:
+        return Icons.person_add;
+      case AIActionType.updateTaskStatus:
+        return Icons.update;
+      case AIActionType.createProject:
+        return Icons.create_new_folder;
+    }
   }
 }
