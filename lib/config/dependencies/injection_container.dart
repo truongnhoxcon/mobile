@@ -20,8 +20,8 @@ import '../../presentation/blocs/blocs.dart';
 
 final sl = GetIt.instance;
 
-// TODO: Replace with your Gemini API key from https://aistudio.google.com/apikey
-const String _geminiApiKey = 'AIzaSyA2ReGQIJ29vLlLqJXyW-ASeOFaZpgaCJI';
+// TODO: Replace with your Groq API key from https://console.groq.com/keys
+const String _groqApiKey = 'gsk_F1Fxxxxx';
 
 Future<void> init() async {
   //===========================================================================
@@ -65,7 +65,7 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<AIChatDataSource>(
-    () => AIChatDataSourceImpl(apiKey: _geminiApiKey, prefs: sl()),
+    () => AIChatDataSourceImpl(apiKey: _groqApiKey, prefs: sl()),
   );
 
   sl.registerLazySingleton<HRDataSource>(

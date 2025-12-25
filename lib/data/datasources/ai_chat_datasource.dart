@@ -1,9 +1,9 @@
 /// AI Chat Data Source
 /// 
-/// Google Gemini API integration for AI ChatBot with system data access.
+/// Groq API integration for AI ChatBot with system data access.
 
 import 'dart:convert';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/ai_chat_message.dart';
 import '../../domain/entities/user.dart';
@@ -40,12 +40,14 @@ abstract class AIChatDataSource {
 class AIChatDataSourceImpl implements AIChatDataSource {
   final String _apiKey;
   final SharedPreferences _prefs;
-  late GenerativeModel _model;
-  ChatSession? _chatSession;
+  final Dio _dio;
   User? _currentUser;
   String _systemDataContext = '';
+  List<Map<String, String>> _conversationHistory = [];
   
   static const String _historyKey = 'ai_chat_history';
+  static const String _groqApiUrl = 'https://api.groq.com/openai/v1/chat/completions';
+  static const String _model = 'llama-3.3-70b-versatile'; // Groq's best free model
 
   // Base system prompt
   static const String _baseSystemPrompt = '''
@@ -66,42 +68,19 @@ Nếu không có dữ liệu liên quan, hãy nói rõ rằng bạn không có t
   AIChatDataSourceImpl({
     required String apiKey,
     required SharedPreferences prefs,
+    Dio? dio,
   }) : _apiKey = apiKey,
-       _prefs = prefs {
-    _initModel();
-  }
-
-  void _initModel() {
-    final fullPrompt = _buildFullSystemPrompt();
-    _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
-      apiKey: _apiKey,
-      systemInstruction: Content.text(fullPrompt),
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      ),
-    );
-    _chatSession = _model.startChat();
-  }
+       _prefs = prefs,
+       _dio = dio ?? Dio();
 
   String _buildFullSystemPrompt() {
-    final buffer = StringBuffer();
-    buffer.writeln(_baseSystemPrompt);
+    final buffer = StringBuffer(_baseSystemPrompt);
     
     if (_currentUser != null) {
       buffer.writeln('\n--- THÔNG TIN NGƯỜI DÙNG HIỆN TẠI ---');
-      buffer.writeln('Tên: ${_currentUser!.displayName ?? "Chưa cập nhật"}');
+      buffer.writeln('Tên: ${_currentUser!.displayName}');
       buffer.writeln('Email: ${_currentUser!.email}');
-      buffer.writeln('Vai trò: ${_currentUser!.role.displayName}');
-      if (_currentUser!.departmentId != null) {
-        buffer.writeln('Phòng ban ID: ${_currentUser!.departmentId}');
-      }
-      if (_currentUser!.position != null) {
-        buffer.writeln('Chức vụ: ${_currentUser!.position}');
-      }
+      buffer.writeln('Vai trò: ${_currentUser!.isProjectManager ? "Project Manager" : _currentUser!.isHRManager ? "HR Manager" : "Nhân viên"}');
     }
     
     if (_systemDataContext.isNotEmpty) {
@@ -115,135 +94,138 @@ Nếu không có dữ liệu liên quan, hãy nói rõ rằng bạn không có t
   @override
   void setUserContext(User user) {
     _currentUser = user;
-    _reinitializeModel();
   }
 
   @override
   Future<void> refreshSystemContext() async {
-    if (_currentUser == null) return;
-    
     final buffer = StringBuffer();
     
     try {
-      // Load user's projects
-      final projectDatasource = ProjectDataSourceImpl();
-      final projects = await projectDatasource.getProjectsByUser(_currentUser!.id);
-      
-      if (projects.isNotEmpty) {
-        buffer.writeln('\n[DỰ ÁN CỦA BẠN]');
-        for (final project in projects) {
-          final p = project.toEntity();
-          buffer.writeln('- "${p.name}" (${p.status.displayName}, tiến độ: ${p.progress}%)');
-        }
+      // Load projects
+      if (_currentUser != null) {
+        final projectDatasource = ProjectDataSourceImpl();
+        final projects = await projectDatasource.getProjectsByUser(_currentUser!.id);
         
-        // Load issues for each project
-        final issueDatasource = IssueDataSourceImpl();
-        int totalTodo = 0;
-        int totalInProgress = 0;
-        int totalDone = 0;
-        final List<Issue> allIssues = [];
-        
-        for (final project in projects.take(5)) { // Limit to 5 projects
-          final issues = await issueDatasource.getIssuesByProject(project.id);
-          for (final issue in issues) {
-            final i = issue.toEntity();
-            allIssues.add(i);
-            switch (i.status) {
-              case IssueStatus.todo:
-                totalTodo++;
-                break;
-              case IssueStatus.inProgress:
-                totalInProgress++;
-                break;
-              case IssueStatus.done:
-                totalDone++;
-                break;
-              default:
-                break;
+        if (projects.isNotEmpty) {
+          buffer.writeln('\n=== DỰ ÁN ===');
+          for (final p in projects.take(10)) {
+            final project = p.toEntity();
+            buffer.writeln('- ${project.name} (${project.status.displayName})');
+            if (project.description != null && project.description!.isNotEmpty) {
+              buffer.writeln('  Mô tả: ${project.description}');
             }
           }
         }
         
-        buffer.writeln('\n[THỐNG KÊ CÔNG VIỆC]');
-        buffer.writeln('- Chờ xử lý: $totalTodo');
-        buffer.writeln('- Đang làm: $totalInProgress');
-        buffer.writeln('- Hoàn thành: $totalDone');
+        // Load tasks for user
+        final issueDatasource = IssueDataSourceImpl();
+        final tasks = await issueDatasource.getIssuesByAssignee(_currentUser!.id);
         
-        // Issues assigned to user
-        final myIssues = allIssues.where((i) => i.assigneeId == _currentUser!.id).toList();
-        if (myIssues.isNotEmpty) {
-          buffer.writeln('\n[CÔNG VIỆC ĐƯỢC GIAO CHO BẠN]');
-          for (final issue in myIssues.take(10)) {
-            buffer.writeln('- "${issue.title}" (${issue.status.displayName}, ưu tiên: ${issue.priority.displayName})');
+        if (tasks.isNotEmpty) {
+          buffer.writeln('\n=== CÔNG VIỆC ĐƯỢC GIAO ===');
+          for (final t in tasks.take(15)) {
+            final task = t.toEntity();
+            buffer.writeln('- ${task.title} (${task.status.displayName}, ${task.priority.displayName})');
+          }
+        }
+        
+        // Load today's attendance
+        final attendanceDatasource = AttendanceDataSourceImpl();
+        final todayAttendance = await attendanceDatasource.getTodayAttendance(_currentUser!.id);
+        
+        if (todayAttendance != null) {
+          buffer.writeln('\n=== CHẤM CÔNG HÔM NAY ===');
+          buffer.writeln('Trạng thái: ${todayAttendance.status.name}');
+          if (todayAttendance.checkInTime != null) {
+            buffer.writeln('Check-in: ${todayAttendance.checkInTime}');
+          }
+          if (todayAttendance.checkOutTime != null) {
+            buffer.writeln('Check-out: ${todayAttendance.checkOutTime}');
           }
         }
       }
-      
-      // Load attendance (this month)
-      try {
-        final attendanceDatasource = AttendanceDataSourceImpl();
-        final today = DateTime.now();
-        final attendances = await attendanceDatasource.getMonthlyAttendance(
-          _currentUser!.id, 
-          today.year,
-          today.month,
-        );
-        
-        if (attendances.isNotEmpty) {
-          int presentDays = attendances.where((a) => a.checkInTime != null).length;
-          buffer.writeln('\n[CHẤM CÔNG THÁNG NÀY]');
-          buffer.writeln('- Số ngày đã chấm công: $presentDays');
-        }
-      } catch (_) {}
-      
     } catch (e) {
       buffer.writeln('\nLỗi khi tải dữ liệu: ${e.toString()}');
     }
     
     _systemDataContext = buffer.toString();
-    _reinitializeModel();
-  }
-
-  void _reinitializeModel() {
-    final fullPrompt = _buildFullSystemPrompt();
-    _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: _apiKey,
-      systemInstruction: Content.text(fullPrompt),
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      ),
-    );
-    _chatSession = _model.startChat();
   }
 
   @override
   Future<String> sendMessage(String message, List<AIChatMessage> history) async {
     try {
-      // Ensure chat session exists
-      _chatSession ??= _model.startChat();
-
-      // Send message and get response
-      final response = await _chatSession!.sendMessage(Content.text(message));
+      // Build messages for API
+      final messages = <Map<String, String>>[];
       
-      final responseText = response.text;
-      if (responseText == null || responseText.isEmpty) {
-        return 'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
+      // Add system prompt
+      messages.add({
+        'role': 'system',
+        'content': _buildFullSystemPrompt(),
+      });
+      
+      // Add conversation history
+      for (final msg in _conversationHistory) {
+        messages.add(msg);
       }
-
-      return responseText;
+      
+      // Add current user message
+      messages.add({
+        'role': 'user',
+        'content': message,
+      });
+      
+      // Make API request
+      final response = await _dio.post(
+        _groqApiUrl,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $_apiKey',
+            'Content-Type': 'application/json',
+          },
+        ),
+        data: {
+          'model': _model,
+          'messages': messages,
+          'temperature': 0.7,
+          'max_tokens': 2048,
+          'top_p': 0.95,
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final responseText = data['choices']?[0]?['message']?['content'] as String?;
+        
+        if (responseText != null && responseText.isNotEmpty) {
+          // Update conversation history
+          _conversationHistory.add({'role': 'user', 'content': message});
+          _conversationHistory.add({'role': 'assistant', 'content': responseText});
+          
+          // Limit history to last 20 messages to avoid token limits
+          if (_conversationHistory.length > 20) {
+            _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 20);
+          }
+          
+          return responseText;
+        }
+      }
+      
+      return 'Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.';
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        return 'Hệ thống đang quá tải. Vui lòng đợi vài giây và thử lại.';
+      } else if (e.response?.statusCode == 401) {
+        return 'API key không hợp lệ. Vui lòng kiểm tra cấu hình.';
+      }
+      return 'Lỗi kết nối: ${e.message}';
     } catch (e) {
-      // Return actual error for debugging
       return 'Lỗi: ${e.toString()}';
     }
   }
 
   @override
   void startNewConversation() {
-    _chatSession = _model.startChat();
+    _conversationHistory.clear();
   }
   
   @override
@@ -281,5 +263,6 @@ Nếu không có dữ liệu liên quan, hãy nói rõ rằng bạn không có t
   @override
   Future<void> clearHistory() async {
     await _prefs.remove(_historyKey);
+    _conversationHistory.clear();
   }
 }
