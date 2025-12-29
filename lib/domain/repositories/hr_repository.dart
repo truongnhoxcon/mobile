@@ -23,6 +23,24 @@ abstract class HRRepository {
   /// Get all departments
   Future<Either<Failure, List<Department>>> getDepartments();
 
+  /// Add new department
+  Future<Either<Failure, Department>> addDepartment({
+    required String name,
+    String? description,
+    String? managerId,
+  });
+
+  /// Update department
+  Future<Either<Failure, Department>> updateDepartment({
+    required String id,
+    required String name,
+    String? description,
+    String? managerId,
+  });
+
+  /// Delete department
+  Future<Either<Failure, void>> deleteDepartment(String id);
+
   /// Get all positions
   Future<Either<Failure, List<Position>>> getPositions();
 

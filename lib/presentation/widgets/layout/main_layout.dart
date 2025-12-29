@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../blocs/blocs.dart';
 
 class MainLayout extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -13,35 +15,49 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
-                _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc'),
-                _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat'),
-                _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công'),
-                _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Cá nhân'),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        // Check if user is PM or HR - they have their own navigation in their home screens
+        final isPMorHR = authState.user?.isProjectManager == true || 
+                         authState.user?.isHRManager == true;
+        final isAtHomeTab = navigationShell.currentIndex == 0;
+        
+        // Hide MainLayout's bottom nav when PM/HR is at Home tab (they have their own nav)
+        final shouldHideBottomNav = isPMorHR && isAtHomeTab;
+
+        return Scaffold(
+          body: navigationShell,
+          bottomNavigationBar: shouldHideBottomNav 
+            ? null 
+            : Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(child: _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ')),
+                        Expanded(child: _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc')),
+                        Expanded(child: _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat')),
+                        Expanded(child: _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công')),
+                        Expanded(child: _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Cá nhân')),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+        );
+      },
     );
   }
 
@@ -52,9 +68,10 @@ class MainLayout extends StatelessWidget {
       onTap: () => _onItemTapped(index),
       borderRadius: BorderRadius.circular(12.r),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 6.h),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               clipBehavior: Clip.none,

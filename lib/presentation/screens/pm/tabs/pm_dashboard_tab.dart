@@ -555,8 +555,11 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
     final progress = project.progress / 100.0;
     
     return GestureDetector(
-      onTap: () {
-        context.push('/projects/${project.id}');
+      onTap: () async {
+        final result = await context.push('/projects/${project.id}');
+        if (result == true) {
+          _loadProjects(); // Reload after delete or update
+        }
       },
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),

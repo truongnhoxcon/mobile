@@ -19,6 +19,9 @@ class HRBloc extends Bloc<HREvent, HRState> {
     on<HRApproveLeave>(_onApproveLeave);
     on<HRRejectLeave>(_onRejectLeave);
     on<HRLoadDepartments>(_onLoadDepartments);
+    on<HRAddDepartment>(_onAddDepartment);
+    on<HRUpdateDepartment>(_onUpdateDepartment);
+    on<HRDeleteDepartment>(_onDeleteDepartment);
     on<HRLoadPositions>(_onLoadPositions);
     on<HRAddEmployee>(_onAddEmployee);
     on<HRImportEmployeesFromCSV>(_onImportEmployeesFromCSV);
@@ -178,11 +181,102 @@ class HRBloc extends Bloc<HREvent, HRState> {
     HRLoadDepartments event,
     Emitter<HRState> emit,
   ) async {
+    emit(state.copyWith(status: HRStatus.loading));
     final result = await _repository.getDepartments();
 
     result.fold(
-      (failure) => emit(state.copyWith(errorMessage: failure.message)),
-      (departments) => emit(state.copyWith(departments: departments)),
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (departments) => emit(state.copyWith(
+        status: HRStatus.loaded,
+        departments: departments,
+      )),
+    );
+  }
+
+  Future<void> _onAddDepartment(
+    HRAddDepartment event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.addDepartment(
+      name: event.name,
+      description: event.description,
+      managerId: event.managerId,
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (department) {
+        final updatedDepartments = [...state.departments, department];
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          departments: updatedDepartments,
+          successMessage: 'Tạo phòng ban thành công: ${department.tenPhongBan}',
+        ));
+      },
+    );
+  }
+
+  Future<void> _onUpdateDepartment(
+    HRUpdateDepartment event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.updateDepartment(
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      managerId: event.managerId,
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (department) {
+        final updatedDepartments = state.departments.map((d) {
+          if (d.id == event.id) return department;
+          return d;
+        }).toList();
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          departments: updatedDepartments,
+          successMessage: 'Cập nhật phòng ban thành công',
+        ));
+      },
+    );
+  }
+
+  Future<void> _onDeleteDepartment(
+    HRDeleteDepartment event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.deleteDepartment(event.id);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) {
+        final updatedDepartments = state.departments.where((d) => d.id != event.id).toList();
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          departments: updatedDepartments,
+          successMessage: 'Đã xóa phòng ban',
+        ));
+      },
     );
   }
 

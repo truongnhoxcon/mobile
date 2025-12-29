@@ -58,6 +58,54 @@ class HRRepositoryImpl implements HRRepository {
   }
 
   @override
+  Future<Either<Failure, Department>> addDepartment({
+    required String name,
+    String? description,
+    String? managerId,
+  }) async {
+    try {
+      final department = await _dataSource.addDepartment(
+        name: name,
+        description: description,
+        managerId: managerId,
+      );
+      return Right(department);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể tạo phòng ban: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Department>> updateDepartment({
+    required String id,
+    required String name,
+    String? description,
+    String? managerId,
+  }) async {
+    try {
+      final department = await _dataSource.updateDepartment(
+        id: id, 
+        name: name,
+        description: description,
+        managerId: managerId,
+      );
+      return Right(department);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể cập nhật phòng ban: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteDepartment(String id) async {
+    try {
+      await _dataSource.deleteDepartment(id);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể xóa phòng ban: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<Position>>> getPositions() async {
     try {
       final positions = await _dataSource.getPositions();

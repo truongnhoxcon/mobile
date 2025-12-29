@@ -25,6 +25,24 @@ abstract class HRDataSource {
   /// Get all departments
   Future<List<Department>> getDepartments();
 
+  /// Add new department
+  Future<Department> addDepartment({
+    required String name,
+    String? description,
+    String? managerId,
+  });
+
+  /// Update department
+  Future<Department> updateDepartment({
+    required String id,
+    required String name,
+    String? description,
+    String? managerId,
+  });
+
+  /// Delete department
+  Future<void> deleteDepartment(String id);
+
   /// Get all positions
   Future<List<Position>> getPositions();
 
@@ -189,6 +207,58 @@ class HRDataSourceImpl implements HRDataSource {
       );
     }).toList();
   }
+
+  @override
+  Future<Department> addDepartment({
+    required String name,
+    String? description,
+    String? managerId,
+  }) async {
+    final docRef = await _departmentsRef.add({
+      'tenPhongBan': name,
+      'moTa': description,
+      'managerId': managerId,
+      'soNhanVien': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return Department(
+      id: docRef.id,
+      tenPhongBan: name,
+      moTa: description,
+      soNhanVien: 0,
+    );
+  }
+
+  @override
+  Future<Department> updateDepartment({
+    required String id,
+    required String name,
+    String? description,
+    String? managerId,
+  }) async {
+    await _departmentsRef.doc(id).update({
+      'tenPhongBan': name,
+      'moTa': description,
+      'managerId': managerId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final doc = await _departmentsRef.doc(id).get();
+    final data = doc.data()!;
+    return Department(
+      id: id,
+      tenPhongBan: data['tenPhongBan'] ?? name,
+      moTa: data['moTa'],
+      soNhanVien: data['soNhanVien'],
+    );
+  }
+
+  @override
+  Future<void> deleteDepartment(String id) async {
+    await _departmentsRef.doc(id).delete();
+  }
+
 
   @override
   Future<List<Position>> getPositions() async {

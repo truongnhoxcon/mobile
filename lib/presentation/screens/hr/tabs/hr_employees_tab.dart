@@ -65,20 +65,51 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
               ),
               SizedBox(height: 12.h),
               
-              // Status Filter Chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip('Tất cả', 'ALL'),
-                    SizedBox(width: 8.w),
-                    _buildFilterChip('Đang làm', 'DANG_LAM_VIEC'),
-                    SizedBox(width: 8.w),
-                    _buildFilterChip('Tạm nghỉ', 'TAM_NGHI'),
-                    SizedBox(width: 8.w),
-                    _buildFilterChip('Nghỉ việc', 'NGHI_VIEC'),
-                  ],
-                ),
+              // Status Filter Chips + Action Buttons
+              Row(
+                children: [
+                  // Filters
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFilterChip('Tất cả', 'ALL'),
+                          SizedBox(width: 8.w),
+                          _buildFilterChip('Đang làm', 'DANG_LAM_VIEC'),
+                          SizedBox(width: 8.w),
+                          _buildFilterChip('Tạm nghỉ', 'TAM_NGHI'),
+                          SizedBox(width: 8.w),
+                          _buildFilterChip('Nghỉ việc', 'NGHI_VIEC'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  // Import CSV Button
+                  Tooltip(
+                    message: 'Import từ CSV',
+                    child: IconButton(
+                      onPressed: () => _pickAndImportCSV(context),
+                      icon: Icon(Icons.upload_file, color: AppColors.success),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.success.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  // Add Employee Button
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddEmployeeDialog(context),
+                    icon: Icon(Icons.person_add, size: 18.w),
+                    label: const Text('Thêm'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -123,90 +154,45 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
 
               final employees = state.employees;
               if (employees.isEmpty) {
-                return Stack(
-                  children: [
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
-                          SizedBox(height: 16.h),
-                          Text(
-                            'Không có nhân viên',
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          SizedBox(height: 16.h),
-                          ElevatedButton.icon(
-                            onPressed: () => _showAddEmployeeDialog(context),
-                            icon: const Icon(Icons.person_add),
-                            label: const Text('Thêm nhân viên'),
-                          ),
-                          SizedBox(height: 8.h),
-                          TextButton.icon(
-                            onPressed: () => _pickAndImportCSV(context),
-                            icon: Icon(Icons.upload_file, color: AppColors.success),
-                            label: Text('Import từ CSV', style: TextStyle(color: AppColors.success)),
-                          ),
-                        ],
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'Không có nhân viên',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    // FAB for import CSV
-                    Positioned(
-                      bottom: 16.h,
-                      right: 16.w,
-                      child: FloatingActionButton.small(
-                        heroTag: 'import_empty',
+                      SizedBox(height: 16.h),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddEmployeeDialog(context),
+                        icon: const Icon(Icons.person_add),
+                        label: const Text('Thêm nhân viên'),
+                      ),
+                      SizedBox(height: 8.h),
+                      TextButton.icon(
                         onPressed: () => _pickAndImportCSV(context),
-                        backgroundColor: AppColors.success,
-                        child: const Icon(Icons.upload_file, color: Colors.white),
+                        icon: Icon(Icons.upload_file, color: AppColors.success),
+                        label: Text('Import từ CSV', style: TextStyle(color: AppColors.success)),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
               }
 
-              return Stack(
-                children: [
-                  RefreshIndicator(
-                    onRefresh: () async => _loadEmployees(),
-                    child: ListView.builder(
-                      padding: EdgeInsets.all(16.w),
-                      itemCount: employees.length,
-                      itemBuilder: (context, index) {
-                        return _buildEmployeeCard(employees[index]);
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 16.h,
-                    right: 16.w,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // Import CSV Button
-                        FloatingActionButton.small(
-                          heroTag: 'import',
-                          onPressed: () => _pickAndImportCSV(context),
-                          backgroundColor: AppColors.success,
-                          child: const Icon(Icons.upload_file, color: Colors.white),
-                        ),
-                        SizedBox(height: 12.h),
-                        // Add Employee Button
-                        FloatingActionButton.extended(
-                          heroTag: 'add',
-                          onPressed: () => _showAddEmployeeDialog(context),
-                          backgroundColor: AppColors.primary,
-                          icon: const Icon(Icons.person_add, color: Colors.white),
-                          label: const Text('Thêm', style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              return RefreshIndicator(
+                onRefresh: () async => _loadEmployees(),
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16.w),
+                  itemCount: employees.length,
+                  itemBuilder: (context, index) {
+                    return _buildEmployeeCard(employees[index]);
+                  },
+                ),
               );
             },
           ),

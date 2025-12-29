@@ -66,6 +66,50 @@ class HRLoadDepartments extends HREvent {
   const HRLoadDepartments();
 }
 
+/// Add new Department
+class HRAddDepartment extends HREvent {
+  final String name;
+  final String? description;
+  final String? managerId;
+
+  const HRAddDepartment({
+    required this.name,
+    this.description,
+    this.managerId,
+  });
+
+  @override
+  List<Object?> get props => [name, description, managerId];
+}
+
+/// Update Department
+class HRUpdateDepartment extends HREvent {
+  final String id;
+  final String name;
+  final String? description;
+  final String? managerId;
+
+  const HRUpdateDepartment({
+    required this.id,
+    required this.name,
+    this.description,
+    this.managerId,
+  });
+
+  @override
+  List<Object?> get props => [id, name, description, managerId];
+}
+
+/// Delete Department
+class HRDeleteDepartment extends HREvent {
+  final String id;
+
+  const HRDeleteDepartment(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
+
 /// Load Positions
 class HRLoadPositions extends HREvent {
   const HRLoadPositions();

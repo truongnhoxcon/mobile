@@ -13,6 +13,7 @@ import '../../../config/dependencies/injection_container.dart' as di;
 import '../../blocs/blocs.dart';
 import '../hr/tabs/hr_dashboard_tab.dart';
 import '../hr/tabs/hr_employees_tab.dart';
+import '../hr/tabs/hr_departments_tab.dart';
 import '../hr/tabs/hr_leaves_tab.dart';
 
 /// HR Manager Home Screen - Completely different layout from Employee
@@ -32,7 +33,8 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
       create: (_) => di.sl<HRBloc>()
         ..add(const HRLoadDashboard())
         ..add(const HRLoadEmployees())
-        ..add(const HRLoadLeaveRequests()),
+        ..add(const HRLoadLeaveRequests())
+        ..add(const HRLoadDepartments()),
       child: Scaffold(
         appBar: _buildAppBar(),
         body: _buildBody(),
@@ -102,7 +104,7 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
 
   Widget _buildHRDashboard() {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           Container(
@@ -111,9 +113,11 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,
+              isScrollable: false,
               tabs: const [
                 Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard)),
                 Tab(text: 'Nhân viên', icon: Icon(Icons.people)),
+                Tab(text: 'Phòng ban', icon: Icon(Icons.business)),
                 Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
               ],
             ),
@@ -123,6 +127,7 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
               children: [
                 HRDashboardTab(),
                 HREmployeesTab(),
+                HRDepartmentsTab(),
                 HRLeavesTab(),
               ],
             ),
