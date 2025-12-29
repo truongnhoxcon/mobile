@@ -30,6 +30,9 @@ abstract class AuthDataSource {
 
   /// Reset password
   Future<void> resetPassword(String email);
+
+  /// Update password
+  Future<void> updatePassword(String password);
 }
 
 class AuthDataSourceImpl implements AuthDataSource {
@@ -145,6 +148,17 @@ class AuthDataSourceImpl implements AuthDataSource {
   Future<void> resetPassword(String email) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  @override
+  Future<void> updatePassword(String password) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) throw AuthException(message: 'User not logged in');
+      await user.updatePassword(password);
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }

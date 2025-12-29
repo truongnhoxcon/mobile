@@ -11,6 +11,7 @@ import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/attendance.dart' as entity;
 import '../../blocs/blocs.dart';
 import 'hr_main_screen.dart';
+import '../../widgets/common/pastel_background.dart';
 
 /// HR Screen - Role-based routing
 /// HR Manager: Shows management dashboard
@@ -66,23 +67,34 @@ class _HRScreenContentState extends State<_HRScreenContent> with SingleTickerPro
     return Scaffold(
       appBar: AppBar(
         title: Text('Chấm công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp)),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Hôm nay', icon: Icon(Icons.fingerprint)),
             Tab(text: 'Lịch sử', icon: Icon(Icons.history)),
           ],
         ),
       ),
-      body: TabBarView(
+      body: PastelBackground(
+        child: TabBarView(
         controller: _tabController,
         children: const [
           _CheckInTab(),
           _HistoryTab(),
         ],
+      ),
       ),
     );
   }
@@ -99,10 +111,10 @@ class _CheckInTab extends StatefulWidget {
 }
 
 class _CheckInTabState extends State<_CheckInTab> {
-  // Company Location Config (HUTECH Campus)
-  static const double _companyLat = 10.802532;
-  static const double _companyLng = 106.713989;
-  static const double _allowedRadius = 500.0; // meters
+  // Company Location Config - Khu A HUTECH (synced with AttendanceBloc)
+  static const double _companyLat = 10.8505;
+  static const double _companyLng = 106.7719;
+  static const double _allowedRadius = 200.0; // meters - synced with AttendanceBloc
 
   Timer? _timer;
   String _currentTime = '';
@@ -255,7 +267,7 @@ class _CheckInTabState extends State<_CheckInTab> {
     }
 
     context.read<AttendanceBloc>().add(AttendanceCheckIn(userId));
-    _showMessage('Check-in thành công! Chúc bạn làm việc vui vẻ.');
+    // _showMessage removed - handled by BlocListener
   }
 
   Future<void> _handleCheckOut(String attendanceId) async {
@@ -265,8 +277,17 @@ class _CheckInTabState extends State<_CheckInTab> {
       return;
     }
 
+    // Check distance to company for checkout too
+    if (_distanceToCompany != null && _distanceToCompany! > _allowedRadius) {
+      _showMessage(
+        'Bạn đang ở quá xa công ty (${_distanceToCompany!.toStringAsFixed(0)}m). Phải trong bán kính ${_allowedRadius.toInt()}m để check-out.',
+        isError: true,
+      );
+      return;
+    }
+
     context.read<AttendanceBloc>().add(AttendanceCheckOut(attendanceId));
-    _showMessage('Check-out thành công! Hẹn gặp lại.');
+    // _showMessage removed - handled by BlocListener
   }
 
   @override
@@ -275,9 +296,17 @@ class _CheckInTabState extends State<_CheckInTab> {
     final userId = authState.user?.id ?? '';
 
     return BlocConsumer<AttendanceBloc, AttendanceState>(
+      listenWhen: (previous, current) => 
+        (previous.status == AttendanceBlocStatus.checkingIn && current.status == AttendanceBlocStatus.loaded) ||
+        (previous.status == AttendanceBlocStatus.checkingOut && current.status == AttendanceBlocStatus.loaded) ||
+        current.status == AttendanceBlocStatus.error,
       listener: (context, state) {
         if (state.status == AttendanceBlocStatus.error && state.errorMessage != null) {
           _showMessage(state.errorMessage!, isError: true);
+        } else if (state.status == AttendanceBlocStatus.loaded && state.todayAttendance != null) {
+          // Show success message based on state
+          final isCheckIn = state.todayAttendance!.checkOutTime == null;
+          _showMessage(isCheckIn ? 'Check-in thành công!' : 'Check-out thành công!');
         }
       },
       builder: (context, state) {
@@ -420,7 +449,7 @@ class _CheckInTabState extends State<_CheckInTab> {
             margin: EdgeInsets.only(top: 6.h),
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.3),
+              color: statusColor.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Text(
@@ -655,6 +684,10 @@ class _CheckInTabState extends State<_CheckInTab> {
         return AppColors.error;
       case entity.AttendanceStatus.leave:
         return AppColors.primary;
+      case entity.AttendanceStatus.holiday:
+        return AppColors.warning;
+      case entity.AttendanceStatus.weekend:
+        return AppColors.textSecondary;
     }
   }
 }
@@ -837,35 +870,9 @@ class _HistoryTabState extends State<_HistoryTab> {
       case entity.AttendanceStatus.earlyLeave: return AppColors.info;
       case entity.AttendanceStatus.absent: return AppColors.error;
       case entity.AttendanceStatus.leave: return AppColors.primary;
+      case entity.AttendanceStatus.holiday: return AppColors.warning;
+      case entity.AttendanceStatus.weekend: return AppColors.textSecondary;
     }
   }
 }
 
-// ============================================================================
-// Leave Request Tab
-// ============================================================================
-class _LeaveRequestTab extends StatelessWidget {
-  const _LeaveRequestTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_busy, size: 80.w, color: AppColors.textSecondary),
-          SizedBox(height: 16.h),
-          Text('Đơn xin nghỉ phép', style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8.h),
-          Text('Tính năng đang phát triển', style: TextStyle(color: AppColors.textSecondary)),
-          SizedBox(height: 24.h),
-          ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.add),
-            label: const Text('Tạo đơn nghỉ phép'),
-          ),
-        ],
-      ),
-    );
-  }
-}

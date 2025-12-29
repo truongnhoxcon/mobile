@@ -9,6 +9,8 @@ import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/project.dart';
 import '../../blocs/blocs.dart';
 
+import '../../widgets/common/pastel_background.dart';
+
 class ProjectListScreen extends StatelessWidget {
   const ProjectListScreen({super.key});
 
@@ -41,9 +43,18 @@ class _ProjectListContentState extends State<_ProjectListContent> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Dự án', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp)),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
+        ),
         actions: [
           PopupMenuButton<ProjectStatus?>(
-            icon: Icon(Icons.filter_list, color: _selectedFilter != null ? AppColors.primary : null),
+            icon: Icon(Icons.filter_list, color: _selectedFilter != null ? Colors.white : Colors.white70),
             tooltip: 'Lọc theo trạng thái',
             onSelected: (status) {
               setState(() => _selectedFilter = status);
@@ -72,7 +83,8 @@ class _ProjectListContentState extends State<_ProjectListContent> {
           ),
         ],
       ),
-      body: BlocBuilder<ProjectBloc, ProjectState>(
+      body: PastelBackground(
+        child: BlocBuilder<ProjectBloc, ProjectState>(
         builder: (context, state) {
           if (state.status == ProjectBlocStatus.loading) {
             return const Center(child: CircularProgressIndicator());
@@ -98,6 +110,7 @@ class _ProjectListContentState extends State<_ProjectListContent> {
             ),
           );
         },
+      ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateProjectDialog(context),

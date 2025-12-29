@@ -104,3 +104,62 @@ class HRImportEmployeesFromCSV extends HREvent {
   @override
   List<Object?> get props => [csvContent];
 }
+
+// ==================== CONTRACT EVENTS ====================
+
+/// Load Contracts List
+class HRLoadContracts extends HREvent {
+  final String? statusFilter;
+
+  const HRLoadContracts({this.statusFilter});
+
+  @override
+  List<Object?> get props => [statusFilter];
+}
+
+// ==================== SALARY EVENTS ====================
+
+/// Load Salaries List
+class HRLoadSalaries extends HREvent {
+  final int? month;
+  final int? year;
+
+  const HRLoadSalaries({this.month, this.year});
+
+  @override
+  List<Object?> get props => [month, year];
+}
+
+// ==================== EVALUATION EVENTS ====================
+
+/// Load Evaluations List
+class HRLoadEvaluations extends HREvent {
+  final bool pendingOnly;
+
+  const HRLoadEvaluations({this.pendingOnly = false});
+
+  @override
+  List<Object?> get props => [pendingOnly];
+}
+
+/// Approve Evaluation
+class HRApproveEvaluation extends HREvent {
+  final String evaluationId;
+  final String note;
+
+  const HRApproveEvaluation({required this.evaluationId, this.note = ''});
+
+  @override
+  List<Object?> get props => [evaluationId, note];
+}
+
+/// Reject Evaluation
+class HRRejectEvaluation extends HREvent {
+  final String evaluationId;
+  final String reason;
+
+  const HRRejectEvaluation({required this.evaluationId, required this.reason});
+
+  @override
+  List<Object?> get props => [evaluationId, reason];
+}

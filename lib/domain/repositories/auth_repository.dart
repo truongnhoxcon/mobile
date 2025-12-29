@@ -41,4 +41,7 @@ abstract class AuthRepository {
 
   /// Stream of auth state changes
   Stream<User?> get authStateChanges;
+
+  /// Change password
+  Future<Either<Failure, void>> changePassword(String newPassword);
 }

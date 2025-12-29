@@ -4,6 +4,9 @@ import '../../../domain/entities/department.dart';
 import '../../../domain/entities/position.dart';
 import '../../../domain/entities/hr_dashboard_stats.dart';
 import '../../../domain/entities/leave_request.dart';
+import '../../../domain/entities/contract.dart';
+import '../../../domain/entities/salary.dart';
+import '../../../domain/entities/evaluation.dart';
 
 /// HR BLoC Status
 enum HRStatus {
@@ -24,6 +27,9 @@ class HRState extends Equatable {
   final List<LeaveRequest> leaveRequests;
   final List<Department> departments;
   final List<Position> positions;
+  final List<Contract> contracts;
+  final List<Salary> salaries;
+  final List<Evaluation> evaluations;
   final String? errorMessage;
   final String? successMessage;
 
@@ -34,6 +40,9 @@ class HRState extends Equatable {
     this.leaveRequests = const [],
     this.departments = const [],
     this.positions = const [],
+    this.contracts = const [],
+    this.salaries = const [],
+    this.evaluations = const [],
     this.errorMessage,
     this.successMessage,
   });
@@ -45,6 +54,9 @@ class HRState extends Equatable {
     List<LeaveRequest>? leaveRequests,
     List<Department>? departments,
     List<Position>? positions,
+    List<Contract>? contracts,
+    List<Salary>? salaries,
+    List<Evaluation>? evaluations,
     String? errorMessage,
     String? successMessage,
   }) {
@@ -55,6 +67,9 @@ class HRState extends Equatable {
       leaveRequests: leaveRequests ?? this.leaveRequests,
       departments: departments ?? this.departments,
       positions: positions ?? this.positions,
+      contracts: contracts ?? this.contracts,
+      salaries: salaries ?? this.salaries,
+      evaluations: evaluations ?? this.evaluations,
       errorMessage: errorMessage,
       successMessage: successMessage,
     );
@@ -68,6 +83,9 @@ class HRState extends Equatable {
         leaveRequests,
         departments,
         positions,
+        contracts,
+        salaries,
+        evaluations,
         errorMessage,
         successMessage,
       ];

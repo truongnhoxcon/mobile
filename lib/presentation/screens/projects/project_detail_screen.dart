@@ -65,6 +65,13 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    // Strict check: Must be Owner OR Project Manager role to create tasks
+    final isOwner = _project?.ownerId != null && _project?.ownerId == authState.user?.id;
+    final canManage = isOwner || 
+                      authState.user?.role == UserRole.projectManager ||
+                      authState.user?.role == UserRole.admin;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _loadingProject
@@ -77,7 +84,7 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
               child: CustomScrollView(
                 slivers: [
                   // Custom AppBar with Project Info
-                  _buildSliverAppBar(),
+                  _buildSliverAppBar(canManage),
                   
                   // KPI Stats
                   SliverToBoxAdapter(child: _buildKPISection()),
@@ -87,23 +94,31 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                 ],
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateIssueDialog(context),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Tạo Task', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
+      floatingActionButton: canManage 
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCreateIssueDialog(context),
+              backgroundColor: AppColors.primary,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text('Tạo Task', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : null,
     );
   }
 
-  Widget _buildSliverAppBar() {
+  Widget _buildSliverAppBar(bool canManage) {
     final project = _project;
     final statusColor = _getStatusColor(project?.status ?? ProjectStatus.planning);
     
     return SliverAppBar(
-      expandedHeight: 200.h,
+      expandedHeight: 240.h,
       pinned: true,
       backgroundColor: AppColors.primary,
+      title: Text(
+        project?.name ?? 'Chi tiết dự án',
+        style: TextStyle(color: Colors.white, fontSize: 18.sp, fontWeight: FontWeight.bold),
+      ),
+      centerTitle: true,
+      iconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
@@ -116,12 +131,13 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 50.h, 20.w, 16.h),
+              padding: EdgeInsets.fromLTRB(20.w, 60.h, 20.w, 16.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
+                   // ... (Header content same as before)
+                   Row(
                     children: [
                       Container(
                         padding: EdgeInsets.all(12.w),
@@ -140,7 +156,7 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                               project?.name ?? 'Đang tải...',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 20.sp,
+                                fontSize: 22.sp,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 1,
@@ -150,10 +166,10 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                               Text(
                                 project!.description!,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontSize: 13.sp,
                                 ),
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                           ],
@@ -161,7 +177,7 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 16.h),
                   Row(
                     children: [
                       Container(
@@ -176,11 +192,11 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                         ),
                       ),
                       SizedBox(width: 12.w),
-                      Icon(Icons.people, color: Colors.white.withValues(alpha: 0.8), size: 16.w),
+                      Icon(Icons.people, color: Colors.white.withValues(alpha: 0.9), size: 16.w),
                       SizedBox(width: 4.w),
                       Text(
                         '${project?.memberIds.length ?? 0} thành viên',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.sp),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12.sp),
                       ),
                       const Spacer(),
                       // Progress
@@ -213,32 +229,59 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
           ),
         ),
       ),
-      leading: IconButton(
-        icon: Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-          child: const Icon(Icons.arrow_back, color: Colors.white),
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
       actions: [
-        IconButton(
-          icon: Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.r),
+        if (canManage)
+          PopupMenuButton<String>(
+            icon: Container(
+              padding: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: const Icon(Icons.more_vert, color: Colors.white),
             ),
-            child: const Icon(Icons.more_vert, color: Colors.white),
-          ),
-          onPressed: () {
-            // TODO: Show settings menu
-          },
-        ),
-        SizedBox(width: 8.w),
+            onSelected: (value) {
+              // Handle menu actions
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Tính năng $value đang phát triển')),
+              );
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text('Chỉnh sửa dự án'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'member',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_add, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text('Quản lý thành viên'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Xóa dự án', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else
+           SizedBox(width: 16.w),
       ],
     );
   }
@@ -331,25 +374,23 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
               ),
             ),
             SizedBox(height: 12.h),
-            SizedBox(
-              height: 420.h,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildColumn(context, 'Chờ xử lý', state.todoIssues, IssueStatus.todo, Colors.grey),
-                    SizedBox(width: 12.w),
-                    _buildColumn(context, 'Đang làm', state.inProgressIssues, IssueStatus.inProgress, AppColors.info),
-                    SizedBox(width: 12.w),
-                    _buildColumn(context, 'Hoàn thành', state.doneIssues, IssueStatus.done, AppColors.success),
-                    SizedBox(width: 12.w),
-                  ],
-                ),
+            
+            // Fit-to-screen Layout (No Horizontal Scroll)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              height: 450.h, // Slightly taller to accommodate content
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildColumn(context, 'Chờ xử lý', state.todoIssues, IssueStatus.todo, Colors.grey)),
+                  SizedBox(width: 8.w), // Smaller spacing
+                  Expanded(child: _buildColumn(context, 'Đang làm', state.inProgressIssues, IssueStatus.inProgress, AppColors.info)),
+                  SizedBox(width: 8.w),
+                  Expanded(child: _buildColumn(context, 'Hoàn thành', state.doneIssues, IssueStatus.done, AppColors.success)),
+                ],
               ),
             ),
-            SizedBox(height: 80.h), // Space for FAB
+            SizedBox(height: 80.h),
           ],
         );
       },
@@ -357,24 +398,21 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
   }
 
   Widget _buildColumn(BuildContext context, String title, List<Issue> issues, IssueStatus status, Color color) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final columnWidth = (screenWidth - 60.w) / 1.3;
-
+    // Removed fixed width calculation logic
+    
     return DragTarget<Issue>(
       onWillAcceptWithDetails: (details) {
-        // Accept if issue is from different column
         return details.data.status != status;
       },
       onAcceptWithDetails: (details) {
-        // Update issue status when dropped
         context.read<IssueBloc>().add(IssueUpdateStatus(details.data.id, status));
       },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: columnWidth,
+        return Container(
+          // width: columnWidth, // REMOVED fixed width
+          height: double.infinity, // Fill parent height
           decoration: BoxDecoration(
             color: isHovering ? color.withValues(alpha: 0.1) : Colors.white,
             borderRadius: BorderRadius.circular(16.r),
@@ -394,7 +432,7 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
             children: [
               // Header
               Container(
-                padding: EdgeInsets.all(14.w),
+                padding: EdgeInsets.all(10.w), // Compact padding
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
@@ -402,19 +440,24 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                 child: Row(
                   children: [
                     Container(
-                      width: 10.w, height: 10.w,
+                      width: 8.w, height: 8.w, // Smaller dot
                       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
-                    SizedBox(width: 10.w),
-                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: AppColors.textPrimary)),
-                    const Spacer(),
+                    SizedBox(width: 6.w),
+                    Expanded(
+                      child: Text(
+                        title, 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp, color: AppColors.textPrimary),
+                        maxLines: 1, overflow: TextOverflow.ellipsis
+                      ),
+                    ),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
-                      child: Text('${issues.length}', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: color)),
+                      child: Text('${issues.length}', style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold, color: color)),
                     ),
                   ],
                 ),
@@ -428,23 +471,14 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                           children: [
                             Icon(
                               isHovering ? Icons.add_circle_outline : Icons.inbox_outlined, 
-                              size: 40.w, 
+                              size: 32.w, 
                               color: isHovering ? color : Colors.grey.shade300,
-                            ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              isHovering ? 'Thả vào đây' : 'Trống', 
-                              style: TextStyle(
-                                color: isHovering ? color : AppColors.textHint, 
-                                fontSize: 13.sp,
-                                fontWeight: isHovering ? FontWeight.bold : FontWeight.normal,
-                              ),
                             ),
                           ],
                         ),
                       )
                     : ListView.builder(
-                        padding: EdgeInsets.all(10.w),
+                        padding: EdgeInsets.all(8.w),
                         shrinkWrap: true,
                         itemCount: issues.length,
                         itemBuilder: (ctx, idx) => _buildDraggableIssueCard(context, issues[idx], status),

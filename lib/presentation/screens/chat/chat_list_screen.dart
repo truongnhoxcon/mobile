@@ -11,6 +11,8 @@ import '../../../domain/entities/user.dart';
 import '../../../data/datasources/user_datasource.dart';
 import '../../blocs/blocs.dart';
 
+import '../../widgets/common/pastel_background.dart';
+
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
@@ -61,16 +63,20 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: AppColors.primary,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
+        ),
         title: Text(
           'Tin nhắn',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 22.sp,
-            color: Colors.white,
           ),
         ),
         actions: [
@@ -82,44 +88,40 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
         ],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(50.h),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
-              tabs: [
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.person, size: 20.w),
-                      SizedBox(width: 8.w),
-                      const Text('Cá nhân'),
-                    ],
-                  ),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person, size: 20.w),
+                    SizedBox(width: 8.w),
+                    const Text('Cá nhân'),
+                  ],
                 ),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.folder_special, size: 20.w),
-                      SizedBox(width: 8.w),
-                      const Text('Dự án'),
-                    ],
-                  ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.folder_special, size: 20.w),
+                    SizedBox(width: 8.w),
+                    const Text('Dự án'),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-      body: BlocBuilder<ChatBloc, ChatState>(
+      body: PastelBackground(
+        child: BlocBuilder<ChatBloc, ChatState>(
         builder: (context, state) {
           if (state.status == ChatBlocStatus.loading && state.rooms.isEmpty) {
             return const Center(child: CircularProgressIndicator());
@@ -150,12 +152,8 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showSearchUserDialog(context),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Chat mới', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
+
     );
   }
 
@@ -215,7 +213,7 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
     return RefreshIndicator(
       onRefresh: () async => _loadRooms(),
       child: ListView.separated(
-        padding: EdgeInsets.symmetric(vertical: 12.h),
+        padding: EdgeInsets.fromLTRB(0, 12.h, 0, 80.h),
         itemCount: rooms.length,
         separatorBuilder: (_, __) => Divider(height: 1, indent: 80.w),
         itemBuilder: (context, index) => _buildChatItem(context, rooms[index]),
@@ -364,210 +362,250 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24.r),
-              topRight: Radius.circular(24.r),
+      builder: (ctx) => _UserSearchSheet(
+        currentUserId: currentUserId,
+        onUserSelected: (user) {
+          final userName = user.displayName ?? user.email;
+          chatBloc.add(ChatCreatePrivateRoom(currentUserId, authState.user?.displayName ?? '', user.id, userName));
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã tạo chat với $userName'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UserSearchSheet extends StatefulWidget {
+  final String currentUserId;
+  final Function(User) onUserSelected;
+
+  const _UserSearchSheet({
+    required this.currentUserId,
+    required this.onUserSelected,
+  });
+
+  @override
+  State<_UserSearchSheet> createState() => _UserSearchSheetState();
+}
+
+class _UserSearchSheetState extends State<_UserSearchSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  final UserDataSourceImpl _userDataSource = UserDataSourceImpl();
+  
+  List<User> _allUsers = [];
+  List<User> _filteredUsers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllUsers();
+  }
+
+  Future<void> _loadAllUsers() async {
+    try {
+      final users = await _userDataSource.getAllUsers();
+      if (mounted) {
+        setState(() {
+          // Optimization: Only take top 50 users initially to avoid lag
+          _allUsers = users.where((u) => u.id != widget.currentUserId).toList();
+          _filteredUsers = _allUsers.take(50).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _filterUsers(String query) {
+    if (query.isEmpty) {
+      setState(() => _filteredUsers = _allUsers.take(50).toList());
+      return;
+    }
+    
+    final lowerQuery = query.toLowerCase();
+    setState(() {
+      _filteredUsers = _allUsers.where((user) {
+        final name = (user.displayName ?? '').toLowerCase();
+        final email = user.email.toLowerCase();
+        return name.contains(lowerQuery) || email.contains(lowerQuery);
+      }).toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24.r),
+          topRight: Radius.circular(24.r),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: EdgeInsets.symmetric(vertical: 12.h),
+            width: 40.w,
+            height: 4.h,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2.r),
             ),
           ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: EdgeInsets.symmetric(vertical: 12.h),
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2.r),
-                ),
-              ),
-              // Header
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(10.w),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Icon(Icons.person_search, color: AppColors.primary, size: 24.w),
-                    ),
-                    SizedBox(width: 16.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tìm đồng nghiệp',
-                            style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Bắt đầu cuộc trò chuyện mới',
-                            style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16.h),
-              // Search field
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: Container(
+          // Header
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(16.r),
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Nhập tên hoặc email...',
-                      hintStyle: TextStyle(color: AppColors.textSecondary),
-                      prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
-                      suffixIcon: _isSearching 
-                        ? Padding(
-                            padding: EdgeInsets.all(12.w),
-                            child: SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                            ),
-                          )
-                        : null,
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                    ),
-                    onChanged: (value) async {
-                      if (value.trim().length >= 2) {
-                        setModalState(() => _isSearching = true);
-                        try {
-                          final datasource = UserDataSourceImpl();
-                          final results = await datasource.searchUsers(value.trim());
-                          setModalState(() {
-                            _searchResults = results.where((u) => u.id != currentUserId).toList();
-                            _isSearching = false;
-                          });
-                        } catch (e) {
-                          setModalState(() => _isSearching = false);
-                        }
-                      } else {
-                        setModalState(() => _searchResults = []);
-                      }
-                    },
+                  child: Icon(Icons.person_search, color: AppColors.primary, size: 24.w),
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tìm đồng nghiệp',
+                        style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${_allUsers.length} đồng nghiệp trong công ty',
+                        style: TextStyle(fontSize: 13.sp, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              SizedBox(height: 16.h),
-              Divider(height: 1),
-              // Search results
-              Expanded(
-                child: _searchResults.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.people_outline, size: 80.w, color: Colors.grey.shade300),
-                          SizedBox(height: 16.h),
-                          Text(
-                            'Tìm kiếm đồng nghiệp',
-                            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            'Nhập ít nhất 2 ký tự để tìm kiếm',
-                            style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final user = _searchResults[index];
-                        final userName = user.displayName ?? user.email;
-                        return Container(
-                          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: ListTile(
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                            leading: Container(
-                              width: 48.w,
-                              height: 48.w,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [AppColors.primary.withValues(alpha: 0.8), AppColors.primary],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: user.photoUrl != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(12.r),
-                                    child: Image.network(user.photoUrl!, fit: BoxFit.cover),
-                                  )
-                                : Center(
-                                    child: Text(
-                                      userName[0].toUpperCase(),
-                                      style: TextStyle(color: Colors.white, fontSize: 20.sp, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                            ),
-                            title: Text(userName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.sp)),
-                            subtitle: Text(user.email, style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp)),
-                            trailing: ElevatedButton(
-                              onPressed: () {
-                                final currentUserName = authState.user?.displayName ?? authState.user?.email ?? '';
-                                chatBloc.add(ChatCreatePrivateRoom(currentUserId, currentUserName, user.id, userName));
-                                Navigator.pop(ctx);
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Đã tạo chat với $userName'),
-                                    backgroundColor: AppColors.success,
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
-                                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.chat, size: 16.w),
-                                  SizedBox(width: 4.w),
-                                  const Text('Chat'),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-              ),
-            ],
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
           ),
-        ),
+          SizedBox(height: 16.h),
+          // Search field
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Nhập tên hoặc email...',
+                  hintStyle: TextStyle(color: AppColors.textSecondary),
+                  prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                ),
+                onChanged: _filterUsers,
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Divider(height: 1, color: AppColors.border),
+          // List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredUsers.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 64.w, color: Colors.grey.shade300),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Không tìm thấy ai',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 16.sp),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.symmetric(vertical: 8.h),
+                        itemCount: _filteredUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = _filteredUsers[index];
+                          final userName = user.displayName ?? user.email;
+                          
+                          return Container(
+                            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                              leading: Container(
+                                width: 48.w,
+                                height: 48.w,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [AppColors.primary.withValues(alpha: 0.8), AppColors.primary],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: user.photoUrl != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(12.r),
+                                        child: Image.network(user.photoUrl!, fit: BoxFit.cover),
+                                      )
+                                    : Center(
+                                        child: Text(
+                                          userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                          style: TextStyle(color: Colors.white, fontSize: 20.sp, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                              ),
+                              title: Text(userName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.sp)),
+                              subtitle: Text(user.email, style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp)),
+                              trailing: ElevatedButton(
+                                onPressed: () => widget.onUserSelected(user),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                                  elevation: 0,
+                                ),
+                                child: const Text('Chat'),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }

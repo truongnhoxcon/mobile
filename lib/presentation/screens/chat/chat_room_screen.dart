@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +12,8 @@ import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/chat_room.dart';
 import '../../../domain/entities/message.dart';
 import '../../blocs/blocs.dart';
+
+import '../../widgets/common/pastel_background.dart';
 
 class ChatRoomScreen extends StatelessWidget {
   final String roomId;
@@ -40,12 +43,27 @@ class _ChatRoomContent extends StatefulWidget {
 class _ChatRoomContentState extends State<_ChatRoomContent> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  
+  // Reply state
+  Message? _replyingTo;
+  
+  // Mention state
+  bool _showMentionPicker = false;
+  List<String> _mentionedUserIds = [];
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+  
+  void _setReplyTo(Message message) {
+    setState(() => _replyingTo = message);
+  }
+  
+  void _cancelReply() {
+    setState(() => _replyingTo = null);
   }
 
   @override
@@ -59,126 +77,279 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
           children: [
             CircleAvatar(
               radius: 18.r,
-              backgroundColor: widget.room?.isGroup == true 
-                ? AppColors.info.withValues(alpha: 0.1) 
-                : AppColors.primary.withValues(alpha: 0.1),
-              child: Icon(
-                widget.room?.isGroup == true ? Icons.group : Icons.person,
-                size: 20.w,
-                color: widget.room?.isGroup == true ? AppColors.info : AppColors.primary,
-              ),
+              backgroundColor: Colors.white,
+              backgroundImage: widget.room?.imageUrl != null ? NetworkImage(widget.room!.imageUrl!) : null,
+              child: widget.room?.imageUrl == null
+                  ? Text(
+                      (widget.room?.getDisplayName(currentUser?.id ?? '') ?? 'C')[0].toUpperCase(),
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16.sp,
+                      ),
+                    )
+                  : null,
             ),
             SizedBox(width: 10.w),
             Expanded(
-              child: Text(
-                widget.room?.name ?? 'Chat',
-                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.room?.getDisplayName(currentUser?.id ?? '') ?? 'Chat',
+                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Typing indicator in app bar
+                  if (widget.room != null && currentUser != null)
+                    BlocBuilder<ChatBloc, ChatState>(
+                      builder: (context, state) {
+                        final typingText = widget.room!.getTypingText(currentUser.id);
+                        if (typingText.isEmpty) {
+                           // Show "Online" or member count if not typing
+                           if (widget.room!.isGroup) {
+                             return Text(
+                               '${widget.room!.memberIds.length} thành viên',
+                               style: TextStyle(fontSize: 11.sp, color: Colors.white70),
+                             );
+                           }
+                           return const SizedBox.shrink();
+                        }
+                        return Text(
+                          typingText,
+                          style: TextStyle(fontSize: 11.sp, color: Colors.white70, fontStyle: FontStyle.italic),
+                        );
+                      },
+                    ),
+                ],
               ),
             ),
           ],
         ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.info_outline), onPressed: () {}),
+          // Placeholder for Chat Info (Members, Mute, Files) - Not implemented yet
+          // IconButton(icon: const Icon(Icons.info_outline), onPressed: () {}),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: BlocBuilder<ChatBloc, ChatState>(
-              builder: (context, state) {
-                if (state.messages.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline, size: 60.w, color: AppColors.textSecondary),
-                        SizedBox(height: 12.h),
-                        Text('Bắt đầu cuộc trò chuyện!', style: TextStyle(color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  );
-                }
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: PastelBackground(
+          child: Column(
+            children: [
+              Expanded(
+                child: BlocBuilder<ChatBloc, ChatState>(
+                  builder: (context, state) {
+                    if (state.messages.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 60.w, color: AppColors.textSecondary),
+                            SizedBox(height: 12.h),
+                            Text('Bắt đầu cuộc trò chuyện!', style: TextStyle(color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      );
+                    }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: EdgeInsets.all(12.w),
-                  itemCount: state.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = state.messages[index];
-                    final isMe = message.senderId == currentUser?.id;
-                    final showAvatar = !isMe && (index == state.messages.length - 1 ||
-                        state.messages[index + 1].senderId != message.senderId);
+                    return ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: EdgeInsets.all(12.w),
+                      itemCount: state.messages.length,
+                      itemBuilder: (context, index) {
+                        final message = state.messages[index];
+                        final isMe = message.senderId == currentUser?.id;
+                        final showAvatar = !isMe && (index == state.messages.length - 1 ||
+                            state.messages[index + 1].senderId != message.senderId);
 
-                    return _buildMessageBubble(message, isMe, showAvatar);
+                        return _buildMessageBubble(message, isMe, showAvatar, currentUser?.id ?? '');
+                      },
+                    );
                   },
-                );
-              },
+                ),
+              ),
+              // Reply preview bar
+              if (_replyingTo != null) _buildReplyPreview(),
+              _buildInputBar(currentUser?.id ?? '', currentUser?.displayName ?? 'User', currentUser?.photoUrl),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReplyPreview() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        border: Border(
+          left: BorderSide(color: AppColors.primary, width: 3),
+          top: BorderSide(color: AppColors.border),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.reply, color: AppColors.primary, size: 20.w),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Trả lời ${_replyingTo!.senderName}',
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12.sp),
+                ),
+                Text(
+                  _replyingTo!.content.length > 50 
+                      ? '${_replyingTo!.content.substring(0, 50)}...' 
+                      : _replyingTo!.content,
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
-          _buildInputBar(currentUser?.id ?? '', currentUser?.displayName ?? 'User', currentUser?.photoUrl),
+          IconButton(
+            icon: Icon(Icons.close, color: AppColors.textSecondary, size: 20.w),
+            onPressed: _cancelReply,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(Message message, bool isMe, bool showAvatar) {
+  Widget _buildMessageBubble(Message message, bool isMe, bool showAvatar, String currentUserId) {
+    // Check if message is deleted
+    if (message.isDeleted) {
+      return _buildDeletedMessage(message, isMe, showAvatar);
+    }
+    
+    return GestureDetector(
+      onLongPress: () => _showMessageOptions(message, isMe, currentUserId),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: 8.h),
+        child: Row(
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMe && showAvatar)
+              CircleAvatar(
+                radius: 16.r,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                backgroundImage: message.senderPhotoUrl != null ? NetworkImage(message.senderPhotoUrl!) : null,
+                child: message.senderPhotoUrl == null
+                    ? Text(message.senderName[0].toUpperCase(), style: TextStyle(fontSize: 12.sp, color: AppColors.primary))
+                    : null,
+              )
+            else if (!isMe)
+              SizedBox(width: 32.w),
+            SizedBox(width: 8.w),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (!isMe && showAvatar)
+                    Padding(
+                      padding: EdgeInsets.only(left: 4.w, bottom: 4.h),
+                      child: Text(message.senderName, style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
+                    ),
+                  
+                  // Reply preview if this message is a reply
+                  if (message.isReply) _buildReplyReference(message, isMe),
+                  
+                  Container(
+                    constraints: BoxConstraints(maxWidth: 280.w),
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: isMe ? AppColors.primary : AppColors.surface,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(message.isReply ? 4.r : 16.r),
+                        topRight: Radius.circular(message.isReply ? 4.r : 16.r),
+                        bottomLeft: Radius.circular(isMe ? 16.r : 4.r),
+                        bottomRight: Radius.circular(isMe ? 4.r : 16.r),
+                      ),
+                      border: isMe ? null : Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: _buildMessageContent(message, isMe),
+                  ),
+                  
+                  // Reactions display
+                  if (message.hasReactions) _buildReactionsDisplay(message, currentUserId),
+                  
+                  // Time and edited indicator
+                  Padding(
+                    padding: EdgeInsets.only(top: 4.h, left: 4.w, right: 4.w),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          DateFormat('HH:mm').format(message.createdAt),
+                          style: TextStyle(fontSize: 10.sp, color: AppColors.textHint),
+                        ),
+                        if (message.isEdited) ...[
+                          SizedBox(width: 4.w),
+                          Text('(đã sửa)', style: TextStyle(fontSize: 10.sp, color: AppColors.textHint, fontStyle: FontStyle.italic)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+
+
+
+  
+  Widget _buildDeletedMessage(Message message, bool isMe, bool showAvatar) {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe && showAvatar)
-            CircleAvatar(
-              radius: 16.r,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              backgroundImage: message.senderPhotoUrl != null ? NetworkImage(message.senderPhotoUrl!) : null,
-              child: message.senderPhotoUrl == null
-                  ? Text(message.senderName[0].toUpperCase(), style: TextStyle(fontSize: 12.sp, color: AppColors.primary))
-                  : null,
-            )
+            CircleAvatar(radius: 16.r, backgroundColor: AppColors.textSecondary.withValues(alpha: 0.1))
           else if (!isMe)
             SizedBox(width: 32.w),
           SizedBox(width: 8.w),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (!isMe && showAvatar)
-                  Padding(
-                    padding: EdgeInsets.only(left: 4.w, bottom: 4.h),
-                    child: Text(message.senderName, style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary)),
-                  ),
-                Container(
-                  constraints: BoxConstraints(maxWidth: 280.w),
-                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                  decoration: BoxDecoration(
-                    color: isMe ? AppColors.primary : AppColors.surface,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16.r),
-                      topRight: Radius.circular(16.r),
-                      bottomLeft: Radius.circular(isMe ? 16.r : 4.r),
-                      bottomRight: Radius.circular(isMe ? 4.r : 16.r),
-                    ),
-                    border: isMe ? null : Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: _buildMessageContent(message, isMe),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 4.h, left: 4.w, right: 4.w),
-                  child: Text(
-                    DateFormat('HH:mm').format(message.createdAt),
-                    style: TextStyle(fontSize: 10.sp, color: AppColors.textHint),
-                  ),
+                Icon(Icons.block, size: 16.w, color: AppColors.textHint),
+                SizedBox(width: 6.w),
+                Text(
+                  message.isDeletedForEveryone ? 'Tin nhắn đã thu hồi' : 'Tin nhắn đã xóa',
+                  style: TextStyle(color: AppColors.textHint, fontStyle: FontStyle.italic, fontSize: 13.sp),
                 ),
               ],
             ),
@@ -186,6 +357,182 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
         ],
       ),
     );
+  }
+  
+  Widget _buildReplyReference(Message message, bool isMe) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 2.h),
+      padding: EdgeInsets.all(8.w),
+      constraints: BoxConstraints(maxWidth: 280.w),
+      decoration: BoxDecoration(
+        color: (isMe ? Colors.white : AppColors.primary).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16.r),
+          topRight: Radius.circular(16.r),
+        ),
+        border: Border(
+          left: BorderSide(color: isMe ? Colors.white70 : AppColors.primary, width: 2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message.replyToSenderName ?? '',
+            style: TextStyle(
+              color: isMe ? Colors.white70 : AppColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 11.sp,
+            ),
+          ),
+          Text(
+            message.replyToContent ?? '',
+            style: TextStyle(
+              color: isMe ? Colors.white60 : AppColors.textSecondary,
+              fontSize: 11.sp,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildReactionsDisplay(Message message, String currentUserId) {
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Wrap(
+        spacing: 4.w,
+        children: message.reactions.map((reaction) {
+          final hasReacted = reaction.userIds.contains(currentUserId);
+          return GestureDetector(
+            onTap: () => _toggleReaction(message, reaction.emoji, currentUserId),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: hasReacted 
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : AppColors.background,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: hasReacted ? AppColors.primary : AppColors.border,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(reaction.emoji, style: TextStyle(fontSize: 14.sp)),
+                  if (reaction.count > 1) ...[
+                    SizedBox(width: 2.w),
+                    Text('${reaction.count}', style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary)),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  void _showMessageOptions(Message message, bool isMe, String currentUserId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Reaction bar
+            Padding(
+              padding: EdgeInsets.all(12.w),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ReactionEmojis.defaults.map((emoji) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _toggleReaction(message, emoji, currentUserId);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: BoxDecoration(
+                        color: message.hasUserReacted(currentUserId, emoji)
+                            ? AppColors.primary.withValues(alpha: 0.2)
+                            : AppColors.background,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(emoji, style: TextStyle(fontSize: 24.sp)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Divider(height: 1),
+            // Actions
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Trả lời'),
+              onTap: () {
+                Navigator.pop(context);
+                _setReplyTo(message);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: const Text('Sao chép'),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.content));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đã sao chép'), duration: Duration(seconds: 1)),
+                );
+              },
+            ),
+            if (isMe) ...[
+              ListTile(
+                leading: Icon(Icons.delete, color: AppColors.error),
+                title: Text('Xóa cho tôi', style: TextStyle(color: AppColors.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteMessage(message, false);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_forever, color: AppColors.error),
+                title: Text('Thu hồi (xóa cho mọi người)', style: TextStyle(color: AppColors.error)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteMessage(message, true);
+                },
+              ),
+            ],
+            SizedBox(height: 8.h),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _toggleReaction(Message message, String emoji, String currentUserId) {
+    context.read<ChatBloc>().add(ChatToggleReaction(
+      messageId: message.id,
+      roomId: widget.roomId,
+      emoji: emoji,
+      userId: currentUserId,
+    ));
+  }
+  
+  void _deleteMessage(Message message, bool forEveryone) {
+    context.read<ChatBloc>().add(ChatDeleteMessage(
+      messageId: message.id,
+      roomId: widget.roomId,
+      forEveryone: forEveryone,
+    ));
   }
 
   Widget _buildMessageContent(Message message, bool isMe) {
@@ -227,6 +574,11 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
       );
     }
 
+    // Build text with highlighted mentions
+    if (message.hasMentions) {
+      return _buildMentionText(message, isMe);
+    }
+
     return Text(
       message.content,
       style: TextStyle(
@@ -234,6 +586,40 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
         fontSize: 15.sp,
       ),
     );
+  }
+  
+  Widget _buildMentionText(Message message, bool isMe) {
+    final spans = <TextSpan>[];
+    int lastIndex = 0;
+    
+    for (final mention in message.mentions) {
+      // Add text before mention
+      if (mention.startIndex > lastIndex) {
+        spans.add(TextSpan(
+          text: message.content.substring(lastIndex, mention.startIndex),
+          style: TextStyle(color: isMe ? Colors.white : AppColors.textPrimary, fontSize: 15.sp),
+        ));
+      }
+      // Add highlighted mention
+      spans.add(TextSpan(
+        text: '@${mention.displayName}',
+        style: TextStyle(
+          color: isMe ? Colors.yellowAccent : AppColors.primary,
+          fontWeight: FontWeight.bold,
+          fontSize: 15.sp,
+        ),
+      ));
+      lastIndex = mention.endIndex;
+    }
+    // Add remaining text
+    if (lastIndex < message.content.length) {
+      spans.add(TextSpan(
+        text: message.content.substring(lastIndex),
+        style: TextStyle(color: isMe ? Colors.white : AppColors.textPrimary, fontSize: 15.sp),
+      ));
+    }
+    
+    return RichText(text: TextSpan(children: spans));
   }
 
   Widget _buildInputBar(String userId, String userName, String? userPhotoUrl) {
@@ -269,6 +655,12 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
                 ),
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _sendMessage(userId, userName, userPhotoUrl),
+                onChanged: (text) {
+                  // Detect @ for mentions
+                  if (text.endsWith('@') && widget.room != null) {
+                    setState(() => _showMentionPicker = true);
+                  }
+                },
               ),
             ),
             SizedBox(width: 8.w),
@@ -302,9 +694,15 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
       senderName: userName,
       senderPhotoUrl: userPhotoUrl,
       content: text,
+      replyToId: _replyingTo?.id,
+      replyToContent: _replyingTo?.content,
+      replyToSenderName: _replyingTo?.senderName,
+      mentions: _mentionedUserIds,
     ));
 
     _messageController.clear();
+    _cancelReply();
+    setState(() => _mentionedUserIds = []);
   }
 
   Future<void> _pickImage(String userId, String userName, String? userPhotoUrl) async {

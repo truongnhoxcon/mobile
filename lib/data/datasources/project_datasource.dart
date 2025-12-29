@@ -62,6 +62,28 @@ class ProjectDataSourceImpl implements ProjectDataSource {
   Future<ProjectModel> createProject(Project project) async {
     final model = ProjectModel.fromEntity(project);
     final docRef = await _projectsRef.add(model.toFirestore());
+    
+    // Auto-create Project Chat Room
+    try {
+      final chatRoomData = {
+        'name': project.name,
+        'type': 'PROJECT',
+        'memberIds': project.memberIds,
+        'memberNames': {}, // Will be populated by users joining or initial set
+        'projectId': docRef.id,
+        'createdBy': project.ownerId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'typingUsers': {},
+        'unreadCounts': {},
+        'mutedBy': [],
+      };
+      await _firestore.collection('chats').add(chatRoomData);
+    } catch (e) {
+      print('Error creating project chat room: $e');
+      // Non-blocking error
+    }
+
     final newDoc = await docRef.get();
     return ProjectModel.fromFirestore(newDoc);
   }

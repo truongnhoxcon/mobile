@@ -16,6 +16,10 @@ import '../../../data/datasources/project_datasource.dart';
 import '../../../data/datasources/issue_datasource.dart';
 import '../../blocs/blocs.dart';
 
+import '../files/files_screen.dart';
+
+import '../../widgets/common/pastel_background.dart';
+
 class EmployeeTasksScreen extends StatefulWidget {
   const EmployeeTasksScreen({super.key});
 
@@ -36,11 +40,12 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   List<Issue> _filteredTasks = [];
   bool _loadingTasks = true;
   String _searchQuery = '';
+  String? _selectedProjectId;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _searchController.addListener(_onSearchChanged);
     _loadProjects();
     _loadMyTasks();
@@ -87,6 +92,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
           _filteredTasks = _myTasks;
           _loadingTasks = false;
         });
+        // Re-apply filter after loading
+        _filterTasks();
       }
     } catch (e) {
       if (mounted) {
@@ -96,19 +103,22 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   }
 
   void _onSearchChanged() {
-    _filterTasks(_searchController.text);
+    _filterTasks();
   }
 
-  void _filterTasks(String query) {
+  void _filterTasks() {
     setState(() {
-      _searchQuery = query;
-      if (query.isEmpty) {
-        _filteredTasks = _myTasks;
-      } else {
-        _filteredTasks = _myTasks
-            .where((task) => task.title.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
+      _searchQuery = _searchController.text;
+      
+      _filteredTasks = _myTasks.where((task) {
+        final matchesSearch = _searchQuery.isEmpty || 
+            task.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        
+        final matchesProject = _selectedProjectId == null || 
+            task.projectId == _selectedProjectId;
+            
+        return matchesSearch && matchesProject;
+      }).toList();
     });
   }
 
@@ -127,8 +137,18 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
           'Công việc',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
         ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
+        ),
       ),
-      body: Column(
+      body: PastelBackground(
+        child: Column(
         children: [
           // Tab Bar
           Container(
@@ -141,6 +161,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
               tabs: const [
                 Tab(text: 'Tác vụ của tôi', icon: Icon(Icons.list_alt)),
                 Tab(text: 'Dự án', icon: Icon(Icons.folder_open)),
+                Tab(text: 'Tài liệu', icon: Icon(Icons.description_outlined)),
               ],
             ),
           ),
@@ -152,41 +173,82 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
               children: [
                 _buildMyTasksTab(),
                 _buildProjectsTab(),
+                const FilesScreen(isEmbedded: true),
               ],
             ),
           ),
         ],
+      ),
       ),
     );
   }
 
   Widget _buildMyTasksTab() {
     return RefreshIndicator(
-      onRefresh: _loadMyTasks,
+      onRefresh: () async {
+        await Future.wait([_loadMyTasks(), _loadProjects()]);
+      },
       child: _loadingTasks
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: EdgeInsets.all(16.w),
               children: [
-                // Search Box
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Tìm kiếm tác vụ...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () => _searchController.clear(),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                      borderSide: BorderSide.none,
+                // Filter and Search Row
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm...',
+                          prefixIcon: const Icon(Icons.search),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+                          filled: true,
+                          fillColor: AppColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedProjectId,
+                            hint: Text('Tất cả DA', style: TextStyle(fontSize: 12.sp)),
+                            isExpanded: true,
+                            items: [
+                              DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Tất cả dự án', style: TextStyle(fontSize: 12.sp)),
+                              ),
+                              ..._projects.map((p) => DropdownMenuItem<String>(
+                                value: p.id,
+                                child: Text(p.name, style: TextStyle(fontSize: 12.sp), overflow: TextOverflow.ellipsis),
+                              )),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedProjectId = value;
+                                _filterTasks();
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 16.h),
                 
@@ -200,8 +262,8 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
                         SizedBox(height: 16.h),
                         Text(
                           _searchQuery.isEmpty 
-                              ? 'Chưa có công việc nào được giao'
-                              : 'Không tìm thấy "$_searchQuery"',
+                              ? 'Không có công việc nào'
+                              : 'Không tìm thấy kết quả',
                           style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
                         ),
                       ],
@@ -233,64 +295,115 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     }
     
     final dueDate = task.dueDate != null 
-        ? DateFormat('dd/MM/yyyy').format(task.dueDate!)
-        : 'Chưa có';
+        ? DateFormat('dd/MM').format(task.dueDate!)
+        : '--/--';
+
+    // Find Project Name
+    final project = _projects.where((p) => p.id == task.projectId).firstOrNull;
+    final projectName = project?.name ?? 'Unknown Project';
 
     return InkWell(
-      onTap: () => context.push('/task/${task.id}'),
+      onTap: () => context.pushNamed('taskDetail', pathParameters: {'id': task.id}),
       borderRadius: BorderRadius.circular(12.r),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(12.w), // Compact padding
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: Offset(0, 2)),
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Project Name Tag
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+              margin: EdgeInsets.only(bottom: 8.h),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    task.title,
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  Icon(Icons.folder_outlined, size: 12.w, color: AppColors.primary),
+                  SizedBox(width: 4.w),
+                  Flexible(
+                    child: Text(
+                      projectName,
+                      style: TextStyle(fontSize: 11.sp, color: AppColors.primary, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Row(
-                    children: [
-                      Icon(Icons.schedule, size: 14.w, color: AppColors.textSecondary),
-                      SizedBox(width: 4.w),
-                      Text(dueDate, style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
-                    ],
                   ),
                 ],
               ),
             ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-              child: Text(
-                statusText,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
+            
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.title,
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 12.w, color: AppColors.textSecondary),
+                          SizedBox(width: 4.w),
+                          Text(dueDate, style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                          SizedBox(width: 12.w),
+                          // Priority Flag?
+                          Icon(Icons.flag, size: 12.w, color: _getPriorityColor(task.priority)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getPriorityColor(IssuePriority priority) {
+    switch (priority) {
+      case IssuePriority.critical: return Colors.red;
+      case IssuePriority.high: return Colors.orange;
+      case IssuePriority.medium: return Colors.blue;
+      case IssuePriority.low: return Colors.grey;
+    }
   }
 
   Widget _buildProjectsTab() {

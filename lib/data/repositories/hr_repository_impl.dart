@@ -1,10 +1,13 @@
-import 'package:dartz/dartz.dart';
+import 'package:dartz/dartz.dart' hide Evaluation;
 import '../../core/errors/failures.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/department.dart';
 import '../../domain/entities/position.dart';
 import '../../domain/entities/hr_dashboard_stats.dart';
 import '../../domain/entities/leave_request.dart';
+import '../../domain/entities/contract.dart';
+import '../../domain/entities/salary.dart';
+import '../../domain/entities/evaluation.dart';
 import '../../domain/repositories/hr_repository.dart';
 import '../datasources/hr_datasource.dart';
 
@@ -139,4 +142,61 @@ class HRRepositoryImpl implements HRRepository {
       return Left(ServerFailure(message: 'Không thể import nhân viên: $e'));
     }
   }
+
+  // ==================== CONTRACT METHODS ====================
+
+  @override
+  Future<Either<Failure, List<Contract>>> getContracts({String? statusFilter}) async {
+    try {
+      final contracts = await _dataSource.getContracts(statusFilter: statusFilter);
+      return Right(contracts);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể tải danh sách hợp đồng: $e'));
+    }
+  }
+
+  // ==================== SALARY METHODS ====================
+
+  @override
+  Future<Either<Failure, List<Salary>>> getSalaries({int? month, int? year}) async {
+    try {
+      final salaries = await _dataSource.getSalaries(month: month, year: year);
+      return Right(salaries);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể tải danh sách lương: $e'));
+    }
+  }
+
+  // ==================== EVALUATION METHODS ====================
+
+  @override
+  Future<Either<Failure, List<Evaluation>>> getEvaluations({bool pendingOnly = false}) async {
+    try {
+      final evaluations = await _dataSource.getEvaluations(pendingOnly: pendingOnly);
+      return Right(evaluations);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể tải danh sách đánh giá: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> approveEvaluation(String id, String note) async {
+    try {
+      await _dataSource.approveEvaluation(id, note);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể duyệt đánh giá: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> rejectEvaluation(String id, String reason) async {
+    try {
+      await _dataSource.rejectEvaluation(id, reason);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể từ chối đánh giá: $e'));
+    }
+  }
 }
+

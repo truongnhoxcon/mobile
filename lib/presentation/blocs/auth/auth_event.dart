@@ -53,3 +53,13 @@ class AuthResetPasswordRequested extends AuthEvent {
   List<Object?> get props => [email];
 }
 
+/// Change password
+class AuthChangePasswordRequested extends AuthEvent {
+  final String newPassword;
+
+  const AuthChangePasswordRequested({required this.newPassword});
+
+  @override
+  List<Object?> get props => [newPassword];
+}
+

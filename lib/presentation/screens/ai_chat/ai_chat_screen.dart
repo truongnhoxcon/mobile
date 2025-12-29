@@ -16,6 +16,8 @@ import '../../blocs/ai_chat/ai_chat_event.dart';
 import '../../blocs/ai_chat/ai_chat_state.dart';
 import '../../blocs/auth/auth_bloc.dart';
 
+import '../../widgets/common/pastel_background.dart';
+
 class AIChatScreen extends StatelessWidget {
   const AIChatScreen({super.key});
 
@@ -88,7 +90,7 @@ class _AIChatContentState extends State<_AIChatContent> {
             Container(
               padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Icon(Icons.smart_toy, color: Colors.white, size: 24.w),
@@ -98,10 +100,18 @@ class _AIChatContentState extends State<_AIChatContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('AI Assistant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp)),
-                Text('Powered by Groq', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                Text('Powered by Groq', style: TextStyle(fontSize: 12.sp, color: Colors.white70)),
               ],
             ),
           ],
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+          ),
         ),
         actions: [
           IconButton(
@@ -116,44 +126,49 @@ class _AIChatContentState extends State<_AIChatContent> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: BlocConsumer<AIChatBloc, AIChatState>(
-              listener: (context, state) {
-                if (state.messages.isNotEmpty) {
-                  _scrollToBottom();
-                }
-              },
-              builder: (context, state) {
-                if (state.messages.isEmpty) {
-                  return _buildWelcomeScreen();
-                }
-
-                return Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: EdgeInsets.all(16.w),
-                        itemCount: state.messages.length + (state.isSending ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == state.messages.length && state.isSending) {
-                            return _buildTypingIndicator();
-                          }
-                          return _buildMessageBubble(state.messages[index]);
-                        },
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: PastelBackground(
+          child: Column(
+          children: [
+            Expanded(
+              child: BlocConsumer<AIChatBloc, AIChatState>(
+                listener: (context, state) {
+                  if (state.messages.isNotEmpty) {
+                    _scrollToBottom();
+                  }
+                },
+                builder: (context, state) {
+                  if (state.messages.isEmpty) {
+                    return _buildWelcomeScreen();
+                  }
+  
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: EdgeInsets.all(16.w),
+                          itemCount: state.messages.length + (state.isSending ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == state.messages.length && state.isSending) {
+                              return _buildTypingIndicator();
+                            }
+                            return _buildMessageBubble(state.messages[index]);
+                          },
+                        ),
                       ),
-                    ),
-                    if (state.hasPendingActions)
-                      _buildActionCards(state.pendingActions),
-                  ],
-                );
-              },
+                      if (state.hasPendingActions)
+                        _buildActionCards(state.pendingActions),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-          _buildInputBar(),
-        ],
+            _buildInputBar(),
+          ],
+        ),
+        ),
       ),
     );
   }

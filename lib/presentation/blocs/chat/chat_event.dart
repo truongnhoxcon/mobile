@@ -62,6 +62,13 @@ class ChatSendMessage extends ChatEvent {
   final String? senderPhotoUrl;
   final String content;
   final MessageType type;
+  // Reply support
+  final String? replyToId;
+  final String? replyToContent;
+  final String? replyToSenderName;
+  // Mention support
+  final List<String> mentions;
+  
   const ChatSendMessage({
     required this.roomId,
     required this.senderId,
@@ -69,9 +76,13 @@ class ChatSendMessage extends ChatEvent {
     this.senderPhotoUrl,
     required this.content,
     this.type = MessageType.text,
+    this.replyToId,
+    this.replyToContent,
+    this.replyToSenderName,
+    this.mentions = const [],
   });
   @override
-  List<Object?> get props => [roomId, senderId, senderName, content, type];
+  List<Object?> get props => [roomId, senderId, senderName, content, type, replyToId, mentions];
 }
 
 class ChatSendFile extends ChatEvent {
@@ -115,4 +126,76 @@ class ChatMessagesUpdated extends ChatEvent {
   const ChatMessagesUpdated(this.messages);
   @override
   List<Object?> get props => [messages];
+}
+
+// ============================================================================
+// NEW EVENTS for Advanced Features
+// ============================================================================
+
+/// Toggle emoji reaction on a message
+class ChatToggleReaction extends ChatEvent {
+  final String messageId;
+  final String roomId;
+  final String emoji;
+  final String userId;
+  
+  const ChatToggleReaction({
+    required this.messageId,
+    required this.roomId,
+    required this.emoji,
+    required this.userId,
+  });
+  
+  @override
+  List<Object?> get props => [messageId, roomId, emoji, userId];
+}
+
+/// Delete or recall a message
+class ChatDeleteMessage extends ChatEvent {
+  final String messageId;
+  final String roomId;
+  final bool forEveryone; // true = recall (show "thu hồi"), false = delete for self only
+  
+  const ChatDeleteMessage({
+    required this.messageId,
+    required this.roomId,
+    this.forEveryone = false,
+  });
+  
+  @override
+  List<Object?> get props => [messageId, roomId, forEveryone];
+}
+
+/// Set typing status for current user
+class ChatSetTyping extends ChatEvent {
+  final String roomId;
+  final String oderId;
+  final String userName;
+  final bool isTyping;
+  
+  const ChatSetTyping({
+    required this.roomId,
+    required this.oderId,
+    required this.userName,
+    required this.isTyping,
+  });
+  
+  @override
+  List<Object?> get props => [roomId, oderId, userName, isTyping];
+}
+
+/// Edit an existing message
+class ChatEditMessage extends ChatEvent {
+  final String messageId;
+  final String roomId;
+  final String newContent;
+  
+  const ChatEditMessage({
+    required this.messageId,
+    required this.roomId,
+    required this.newContent,
+  });
+  
+  @override
+  List<Object?> get props => [messageId, roomId, newContent];
 }

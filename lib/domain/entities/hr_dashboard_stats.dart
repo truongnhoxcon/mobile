@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 /// HR Dashboard Stats entity
 class HRDashboardStats extends Equatable {
   final int tongNhanVien;
+  final int dangLamViec;  // Active employees
   final int nhanVienMoi;
   final int nghiViec;
   final int donChoPheDuyet;
@@ -12,6 +13,7 @@ class HRDashboardStats extends Equatable {
 
   const HRDashboardStats({
     this.tongNhanVien = 0,
+    this.dangLamViec = 0,
     this.nhanVienMoi = 0,
     this.nghiViec = 0,
     this.donChoPheDuyet = 0,
@@ -22,6 +24,7 @@ class HRDashboardStats extends Equatable {
 
   HRDashboardStats copyWith({
     int? tongNhanVien,
+    int? dangLamViec,
     int? nhanVienMoi,
     int? nghiViec,
     int? donChoPheDuyet,
@@ -31,6 +34,7 @@ class HRDashboardStats extends Equatable {
   }) {
     return HRDashboardStats(
       tongNhanVien: tongNhanVien ?? this.tongNhanVien,
+      dangLamViec: dangLamViec ?? this.dangLamViec,
       nhanVienMoi: nhanVienMoi ?? this.nhanVienMoi,
       nghiViec: nghiViec ?? this.nghiViec,
       donChoPheDuyet: donChoPheDuyet ?? this.donChoPheDuyet,
@@ -42,7 +46,7 @@ class HRDashboardStats extends Equatable {
 
   @override
   List<Object?> get props => [
-        tongNhanVien, nhanVienMoi, nghiViec, donChoPheDuyet,
+        tongNhanVien, dangLamViec, nhanVienMoi, nghiViec, donChoPheDuyet,
         chamCongPhongBan, nhanVienTheoTuoi, nhanVienTheoGioiTinh,
       ];
 }

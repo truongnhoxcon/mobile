@@ -395,6 +395,10 @@ class _HRLeavesTabState extends State<HRLeavesTab> {
         color = AppColors.error;
         label = 'Từ chối';
         break;
+      case LeaveStatus.cancelled:
+        color = AppColors.textSecondary;
+        label = 'Đã hủy';
+        break;
     }
     
     return Container(
@@ -418,10 +422,19 @@ class _HRLeavesTabState extends State<HRLeavesTab> {
     switch (type) {
       case LeaveType.annual:
         return Colors.blue;
-      case LeaveType.sick:
+      case LeaveType.sickPaid:
+      case LeaveType.sickUnpaid:
         return Colors.red;
-      case LeaveType.personal:
+      case LeaveType.maternity:
+      case LeaveType.paternity:
+        return Colors.pink;
+      case LeaveType.wedding:
+      case LeaveType.bereavement:
         return Colors.purple;
+      case LeaveType.compensatory:
+        return Colors.green;
+      case LeaveType.personal:
+        return Colors.orange;
       case LeaveType.unpaid:
         return Colors.grey;
     }

@@ -1,7 +1,6 @@
-/// HR Data Source
-/// 
-/// Firebase Firestore operations for HR management.
+/// HR Data Source - Firebase Firestore operations for HR management.
 
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/employee.dart';
@@ -9,6 +8,9 @@ import '../../domain/entities/department.dart';
 import '../../domain/entities/position.dart';
 import '../../domain/entities/hr_dashboard_stats.dart';
 import '../../domain/entities/leave_request.dart';
+import '../../domain/entities/contract.dart';
+import '../../domain/entities/salary.dart';
+import '../../domain/entities/evaluation.dart';
 
 abstract class HRDataSource {
   /// Get all employees
@@ -51,6 +53,27 @@ abstract class HRDataSource {
 
   /// Import employees from CSV (only creates employee records, not auth users)
   Future<List<Employee>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData);
+
+  // ==================== CONTRACT METHODS ====================
+  
+  /// Get all contracts
+  Future<List<Contract>> getContracts({String? statusFilter});
+
+  // ==================== SALARY METHODS ====================
+  
+  /// Get salaries by period
+  Future<List<Salary>> getSalaries({int? month, int? year});
+
+  // ==================== EVALUATION METHODS ====================
+  
+  /// Get evaluations
+  Future<List<Evaluation>> getEvaluations({bool pendingOnly = false});
+
+  /// Approve evaluation
+  Future<void> approveEvaluation(String id, String note);
+
+  /// Reject evaluation
+  Future<void> rejectEvaluation(String id, String reason);
 }
 
 class HRDataSourceImpl implements HRDataSource {
@@ -95,7 +118,7 @@ class HRDataSourceImpl implements HRDataSource {
     final employees = employeesSnapshot.docs;
     
     final totalEmployees = employees.length;
-    final workingEmployees = employees.where((doc) {
+    final activeEmployees = employees.where((doc) {
       final data = doc.data();
       return data['status'] == 'DANG_LAM_VIEC' || data['trangThai'] == 'DANG_LAM_VIEC';
     }).length;
@@ -145,6 +168,7 @@ class HRDataSourceImpl implements HRDataSource {
 
     return HRDashboardStats(
       tongNhanVien: totalEmployees,
+      dangLamViec: activeEmployees,
       nhanVienMoi: newEmployees,
       nghiViec: terminatedEmployees,
       donChoPheDuyet: pendingLeaves.docs.length,
@@ -400,10 +424,164 @@ class HRDataSourceImpl implements HRDataSource {
         ));
       } catch (e) {
         // Log error but continue with other employees
-        print('Error importing employee: $e');
+        debugPrint('Error importing employee: $e');
       }
     }
 
     return importedEmployees;
   }
+
+  // ==================== CONTRACT IMPLEMENTATIONS ====================
+
+  CollectionReference<Map<String, dynamic>> get _contractsRef =>
+      _firestore.collection('contracts');
+
+  @override
+  Future<List<Contract>> getContracts({String? statusFilter}) async {
+    Query<Map<String, dynamic>> query = _contractsRef;
+    
+    if (statusFilter != null && statusFilter.isNotEmpty) {
+      query = query.where('status', isEqualTo: statusFilter.toUpperCase());
+    }
+    
+    final snapshot = await query.orderBy('createdAt', descending: true).get();
+    return snapshot.docs.map((doc) => _contractFromFirestore(doc)).toList();
+  }
+
+  Contract _contractFromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return Contract(
+      id: doc.id,
+      employeeId: data['employeeId'] ?? data['nhanVienId'] ?? '',
+      employeeName: data['employeeName'] ?? data['hoTenNhanVien'],
+      contractNumber: data['contractNumber'] ?? data['soHopDong'] ?? 'HD-${doc.id.substring(0, 6)}',
+      type: ContractTypeExtension.fromString(data['type'] ?? data['loaiHopDong'] ?? 'INDEFINITE'),
+      startDate: data['startDate'] is Timestamp
+          ? (data['startDate'] as Timestamp).toDate()
+          : data['ngayBatDau'] is Timestamp
+              ? (data['ngayBatDau'] as Timestamp).toDate()
+              : DateTime.now(),
+      endDate: data['endDate'] is Timestamp
+          ? (data['endDate'] as Timestamp).toDate()
+          : data['ngayKetThuc'] is Timestamp
+              ? (data['ngayKetThuc'] as Timestamp).toDate()
+              : null,
+      grossSalary: (data['grossSalary'] ?? data['salary'] ?? data['luong'] as num?)?.toDouble() ?? 0,
+      status: ContractStatusExtension.fromString(data['status'] ?? data['trangThai'] ?? 'ACTIVE'),
+      note: data['note'] ?? data['ghiChu'],
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+    );
+  }
+
+  // ==================== SALARY IMPLEMENTATIONS ====================
+
+  CollectionReference<Map<String, dynamic>> get _salariesRef =>
+      _firestore.collection('salaries');
+
+  @override
+  Future<List<Salary>> getSalaries({int? month, int? year}) async {
+    final targetMonth = month ?? DateTime.now().month;
+    final targetYear = year ?? DateTime.now().year;
+    
+    final snapshot = await _salariesRef
+        .where('month', isEqualTo: targetMonth)
+        .where('year', isEqualTo: targetYear)
+        .get();
+    
+    return snapshot.docs.map((doc) => _salaryFromFirestore(doc)).toList();
+  }
+
+  Salary _salaryFromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return Salary(
+      id: doc.id,
+      employeeId: data['employeeId'] ?? data['nhanVienId'] ?? '',
+      employeeName: data['employeeName'] ?? data['hoTenNhanVien'],
+      month: data['month'] ?? data['thang'] ?? DateTime.now().month,
+      year: data['year'] ?? data['nam'] ?? DateTime.now().year,
+      grossSalary: (data['grossSalary'] ?? data['salary'] ?? data['luong'] as num?)?.toDouble() ?? 0,
+      baseSalary: (data['baseSalary'] ?? data['luongCoBan'] as num?)?.toDouble() ?? 0,
+      performanceBonus: (data['performanceBonus'] ?? data['bonus'] ?? data['thuong'] as num?)?.toDouble() ?? 0,
+      bhxh: (data['bhxh'] as num?)?.toDouble() ?? 0,
+      bhyt: (data['bhyt'] as num?)?.toDouble() ?? 0,
+      bhtn: (data['bhtn'] as num?)?.toDouble() ?? 0,
+      personalTax: (data['personalTax'] ?? data['thue'] as num?)?.toDouble() ?? 0,
+      netSalary: (data['netSalary'] ?? data['thucNhan'] as num?)?.toDouble() ?? 0,
+      status: SalaryStatusExtension.fromString(data['status'] ?? data['trangThai'] ?? 'PENDING'),
+      paidAt: data['paidAt'] is Timestamp
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
+      note: data['note'] ?? data['ghiChu'],
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+    );
+  }
+
+  // ==================== EVALUATION IMPLEMENTATIONS ====================
+
+  CollectionReference<Map<String, dynamic>> get _evaluationsRef =>
+      _firestore.collection('evaluations');
+
+  @override
+  Future<List<Evaluation>> getEvaluations({bool pendingOnly = false}) async {
+    Query<Map<String, dynamic>> query = _evaluationsRef;
+    
+    if (pendingOnly) {
+      query = query.where('status', isEqualTo: 'PENDING');
+    }
+    
+    final snapshot = await query.orderBy('createdAt', descending: true).get();
+    return snapshot.docs.map((doc) => _evaluationFromFirestore(doc)).toList();
+  }
+
+  @override
+  Future<void> approveEvaluation(String id, String note) async {
+    await _evaluationsRef.doc(id).update({
+      'status': 'APPROVED',
+      'approvedAt': FieldValue.serverTimestamp(),
+      'approvalNote': note,
+    });
+  }
+
+  @override
+  Future<void> rejectEvaluation(String id, String reason) async {
+    await _evaluationsRef.doc(id).update({
+      'status': 'REJECTED',
+      'rejectedAt': FieldValue.serverTimestamp(),
+      'rejectReason': reason,
+    });
+  }
+
+  Evaluation _evaluationFromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    final now = DateTime.now();
+    return Evaluation(
+      id: doc.id,
+      employeeId: data['employeeId'] ?? data['nhanVienId'] ?? '',
+      employeeName: data['employeeName'] ?? data['hoTenNhanVien'],
+      period: data['period'] ?? data['kyDanhGia'] ?? '',
+      startDate: data['startDate'] is Timestamp
+          ? (data['startDate'] as Timestamp).toDate()
+          : DateTime(now.year, now.month - 3, 1),
+      endDate: data['endDate'] is Timestamp
+          ? (data['endDate'] as Timestamp).toDate()
+          : DateTime(now.year, now.month, 0),
+      finalScore: (data['finalScore'] ?? data['score'] ?? data['diem'] as num?)?.toDouble(),
+      managerSummary: data['managerSummary'] ?? data['comments'] ?? data['nhanXet'],
+      status: EvaluationStatusExtension.fromString(data['status'] ?? data['trangThai'] ?? 'DRAFT'),
+      evaluatorId: data['evaluatorId'] ?? data['nguoiDanhGiaId'],
+      evaluatorName: data['evaluatorName'] ?? data['tenNguoiDanhGia'],
+      rejectReason: data['rejectReason'] ?? data['lyDoTuChoi'],
+      approvedAt: data['approvedAt'] is Timestamp
+          ? (data['approvedAt'] as Timestamp).toDate()
+          : null,
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+    );
+  }
 }
+

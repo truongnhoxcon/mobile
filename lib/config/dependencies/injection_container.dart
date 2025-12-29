@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/services/location_service.dart';
 import '../../data/datasources/auth_datasource.dart';
 import '../../data/datasources/attendance_datasource.dart';
 import '../../data/datasources/project_datasource.dart';
@@ -12,6 +13,7 @@ import '../../data/datasources/issue_datasource.dart';
 import '../../data/datasources/chat_datasource.dart';
 import '../../data/datasources/ai_chat_datasource.dart';
 import '../../data/datasources/hr_datasource.dart';
+import '../../data/datasources/storage_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/hr_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -35,6 +37,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
   sl.registerLazySingleton(() => FirebaseStorage.instance);
   sl.registerLazySingleton(() => GoogleSignIn());
+  
+  // Location Service
+  sl.registerLazySingleton(() => LocationService());
 
   //===========================================================================
   // Data Sources
@@ -72,6 +77,10 @@ Future<void> init() async {
     () => HRDataSourceImpl(firestore: sl()),
   );
 
+  sl.registerLazySingleton<StorageDataSource>(
+    () => StorageDataSourceImpl(firestore: sl(), storage: sl()),
+  );
+
   //===========================================================================
   // Repositories
   //===========================================================================
@@ -95,4 +104,9 @@ Future<void> init() async {
   sl.registerFactory(() => ChatBloc(dataSource: sl()));
   sl.registerFactory(() => AIChatBloc(dataSource: sl()));
   sl.registerFactory(() => HRBloc(repository: sl()));
+  sl.registerFactory(() => MyInfoBloc(repository: sl(), authBloc: sl()));
+  sl.registerFactory(() => LeaveRequestBloc(repository: sl(), authBloc: sl()));
+  sl.registerFactory(() => NotificationBloc());
+  sl.registerFactory(() => FilesBloc(dataSource: sl(), authBloc: sl()));
 }
+

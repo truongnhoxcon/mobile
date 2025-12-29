@@ -12,12 +12,14 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
-import '../../../config/dependencies/injection_container.dart' as di;
-import '../../../domain/entities/attendance.dart';
 import '../../blocs/blocs.dart';
+import '../../../data/datasources/issue_datasource.dart';
+import '../../../domain/entities/issue.dart';
 import '../../widgets/common/gradient_header.dart';
 import '../../widgets/common/stat_card.dart';
 import '../../widgets/common/gradient_button.dart';
+import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/pastel_background.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,7 +29,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+
   
   // Dashboard data
   int _leaveDaysRemaining = 12;
@@ -38,11 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
   String _currentTime = '';
   Timer? _timer;
 
+  // Priority Tasks
+  late Future<List<Issue>> _priorityTasksFuture;
+
   @override
   void initState() {
     super.initState();
     _startTimer();
     _loadTodayAttendance();
+    _priorityTasksFuture = _fetchTopTasks();
   }
 
   void _loadTodayAttendance() {
@@ -78,59 +84,73 @@ class _HomeScreenState extends State<HomeScreen> {
     final displayName = authState.user?.displayName ?? 'Nhân viên';
     final avatarUrl = authState.user?.photoUrl;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          // TODO: Reload data
-        },
-        color: AppColors.primary,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // Gradient Header
-              GradientHeader(
-                displayName: displayName,
-                avatarUrl: avatarUrl,
-                notificationCount: 2,
-                onNotificationTap: () {
-                  // TODO: Navigate to notifications
-                },
-              ),
-              
-              Padding(
-                padding: EdgeInsets.all(16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Stats Row
-                    _buildStatsRow(),
-                    SizedBox(height: 16.h),
-                    
-                    // Attendance Card
-                    _buildAttendanceCard(),
-                    SizedBox(height: 16.h),
-                    
-                    // Quick Actions
-                    _buildQuickActions(),
-                    SizedBox(height: 16.h),
-                    
-                    // Task Summary
-                    _buildTaskSummary(),
-                  ],
+    return BlocListener<AttendanceBloc, AttendanceState>(
+      listenWhen: (previous, current) => 
+        (previous.status == AttendanceBlocStatus.checkingIn && current.status == AttendanceBlocStatus.loaded) ||
+        (previous.status == AttendanceBlocStatus.checkingOut && current.status == AttendanceBlocStatus.loaded) ||
+        current.status == AttendanceBlocStatus.error,
+      listener: (context, state) {
+        if (state.status == AttendanceBlocStatus.error && state.errorMessage != null) {
+          if (state.errorMessage!.contains('cách văn phòng')) {
+             _showLocationErrorDialog(state.errorMessage!, null);
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(content: Text(state.errorMessage!), backgroundColor: AppColors.error),
+             );
+          }
+        } else if (state.status == AttendanceBlocStatus.loaded) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(
+               content: Text('Chấm công thành công!'),
+               backgroundColor: AppColors.success,
+             ),
+           );
+        }
+      },
+      child: PastelBackground(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            _loadTodayAttendance();
+          },
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                // Gradient Header
+                GradientHeader(
+                  displayName: displayName,
+                  avatarUrl: avatarUrl,
+                  notificationCount: 2,
+                  onNotificationTap: () {
+                     context.push(AppRoutes.notifications);
+                  },
                 ),
-              ),
-            ],
+                
+                Padding(
+                  padding: EdgeInsets.all(16.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Stats Row
+                      _buildStatsRow(),
+                      SizedBox(height: 16.h),
+                      
+                      // Attendance Card
+                      _buildAttendanceCard(),
+                      SizedBox(height: 16.h),
+                      
+                      // Priority Tasks
+                      _buildPriorityTasks(),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 80.h), // Space for bottom nav
+              ],
+            ),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(AppRoutes.aiChat),
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.smart_toy, color: Colors.white),
-      ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -180,19 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
 
-        return Container(
-          padding: EdgeInsets.all(20.w),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        return GlassCard(
           child: Column(
             children: [
               // Title
@@ -309,117 +317,178 @@ class _HomeScreenState extends State<HomeScreen> {
     
     if (userId.isEmpty) return;
     
+    // BLoC handles GPS and geofence validation - just dispatch the event
     if (!hasCheckedIn) {
-      // Check-in
       context.read<AttendanceBloc>().add(AttendanceCheckIn(userId));
     } else if (attendanceId != null) {
-      // Check-out
       context.read<AttendanceBloc>().add(AttendanceCheckOut(attendanceId));
     }
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildPriorityTasks() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '⚡ Truy cập nhanh',
-          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 12.h),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            QuickActionCard(
-              label: 'Chấm công',
-              icon: Icons.access_time,
-              color: const Color(0xFF3B82F6),
-              onTap: () => context.push(AppRoutes.hr),
+            Text(
+              'Công việc ưu tiên',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            SizedBox(width: 12.w),
-            QuickActionCard(
-              label: 'Nghỉ phép',
-              icon: Icons.event_available,
-              color: const Color(0xFF10B981),
-              onTap: () {
-                // TODO: Navigate to leave request
-              },
+            TextButton(
+              onPressed: () => context.push(AppRoutes.employeeTasks),
+              child: const Text('Xem tất cả'),
             ),
           ],
         ),
         SizedBox(height: 12.h),
-        Row(
-          children: [
-            QuickActionCard(
-              label: 'Dự án',
-              icon: Icons.folder_special,
-              color: const Color(0xFF8B5CF6),
-              onTap: () => context.push(AppRoutes.projects),
-            ),
-            SizedBox(width: 12.w),
-            QuickActionCard(
-              label: 'Tin nhắn',
-              icon: Icons.chat_bubble,
-              color: const Color(0xFFFF6B00),
-              onTap: () => context.push(AppRoutes.chat),
-            ),
-          ],
+        FutureBuilder<List<Issue>>(
+          future: _priorityTasksFuture, 
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            
+            final tasks = snapshot.data ?? [];
+            if (tasks.isEmpty) {
+              return Container(
+                padding: EdgeInsets.all(20.w),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 48.w, color: AppColors.success),
+                      SizedBox(height: 12.h),
+                      Text(
+                        'Bạn đã hoàn thành hết công việc!',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: tasks.map((task) => _buildTaskItem(task)).toList(),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildTaskSummary() {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.push(AppRoutes.projects),
+  Future<List<Issue>> _fetchTopTasks() async {
+    try {
+      final authState = context.read<AuthBloc>().state;
+      final userId = authState.user?.id ?? '';
+      if (userId.isEmpty) return [];
+
+      final issues = await IssueDataSourceImpl().getIssuesByAssignee(userId);
+      // Filter for active tasks (not done)
+      final activeIssues = issues
+          .where((i) => i.status != IssueStatus.done)
+          .map((m) => m.toEntity()) // Convert model to entity
+          .toList();
+          
+      // Take top 3
+      return activeIssues.take(3).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Widget _buildTaskItem(Issue task) {
+    Color statusColor;
+    String statusText;
+    switch (task.status) {
+      case IssueStatus.todo:
+        statusColor = AppColors.warning;
+        statusText = 'Chờ xử lý';
+        break;
+      case IssueStatus.inProgress:
+        statusColor = AppColors.primary;
+        statusText = 'Đang làm';
+        break;
+      case IssueStatus.done:
+        statusColor = AppColors.success;
+        statusText = 'Hoàn thành';
+        break;
+    }
+
+    return InkWell(
+      onTap: () => context.pushNamed('taskDetail', pathParameters: {'id': task.id}),
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(12.w),
+              padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12.r),
+                color: statusColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              child: Icon(Icons.assignment, color: AppColors.primary, size: 24.w),
+              child: Icon(Icons.assignment_outlined, color: statusColor, size: 20.w),
             ),
-            SizedBox(width: 14.w),
+            SizedBox(width: 12.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Công việc của tôi',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp),
+                    task.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.sp,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    '5 việc cần hoàn thành',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+                    'Hạn: ${task.dueDate != null ? DateFormat('dd/MM').format(task.dueDate!) : 'N/A'}',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20.r),
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
               ),
               child: Text(
-                '5',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp),
+                statusText,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -428,110 +497,61 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    final authState = context.read<AuthBloc>().state;
-    final isHRManager = authState.user?.isHRManager ?? false;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+
+  void _showLocationErrorDialog(String message, double? distance) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        title: Row(
+          children: [
+            Icon(Icons.location_off, color: AppColors.error, size: 28.w),
+            SizedBox(width: 10.w),
+            Text('Không thể chấm công', style: TextStyle(fontSize: 18.sp)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message, style: TextStyle(fontSize: 14.sp)),
+            if (distance != null) ...[
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.directions_walk, color: AppColors.warning, size: 20.w),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Khoảng cách: ${_formatDistance(distance)}',
+                      style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Đóng', style: TextStyle(color: AppColors.primary)),
           ),
         ],
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ'),
-              _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc'),
-              _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat'),
-              _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công'),
-              _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Hồ sơ'),
-            ],
-          ),
-        ),
-      ),
     );
   }
-
-  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label, {int badge = 0}) {
-    final isActive = _selectedIndex == index;
-    
-    return InkWell(
-      onTap: () => _onItemTapped(index),
-      borderRadius: BorderRadius.circular(12.r),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  isActive ? activeIcon : inactiveIcon,
-                  color: isActive ? AppColors.primary : AppColors.textSecondary,
-                  size: 26.w,
-                ),
-                if (badge > 0)
-                  Positioned(
-                    right: -8.w,
-                    top: -4.h,
-                    child: Container(
-                      padding: EdgeInsets.all(4.w),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        badge > 9 ? '9+' : '$badge',
-                        style: TextStyle(color: Colors.white, fontSize: 9.sp, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.sp,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex && index == 0) return;
-    
-    switch (index) {
-      case 0:
-        setState(() => _selectedIndex = 0);
-        break;
-      case 1: // Công việc
-        context.push(AppRoutes.employeeTasks);
-        break;
-      case 2: // Chat
-        context.push(AppRoutes.chat);
-        break;
-      case 3: // Chấm công
-        context.push(AppRoutes.hr);
-        break;
-      case 4: // Profile
-        context.push(AppRoutes.profile);
-        break;
+  
+  String _formatDistance(double meters) {
+    if (meters >= 1000) {
+      return '${(meters / 1000).toStringAsFixed(1)} km';
     }
+    return '${meters.toInt()} m';
   }
 }

@@ -7,6 +7,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
 import '../../blocs/blocs.dart';
 
+import '../../widgets/common/pastel_background.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -48,31 +50,82 @@ class ProfileScreen extends StatelessWidget {
           return Scaffold(
             appBar: AppBar(
               title: Text(
-                'Hồ sơ',
+                'Cá nhân',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
               ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.settings, size: 26.w),
-                  onPressed: () {},
+              centerTitle: true,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: Colors.white,
+              flexibleSpace: Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
                 ),
-              ],
+              ),
             ),
-            body: SingleChildScrollView(
-              padding: EdgeInsets.all(16.w),
+            body: PastelBackground(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(16.w),
               child: Column(
                 children: [
                   _buildProfileHeader(user),
-                  SizedBox(height: 24.h),
-                  _buildStatsRow(),
-                  SizedBox(height: 24.h),
-                  _buildMenuItem('Thông tin cá nhân', Icons.person_outline, () {}),
-                  _buildMenuItem('Cài đặt thông báo', Icons.notifications_outlined, () {}),
-                  _buildMenuItem('Đổi mật khẩu', Icons.lock_outline, () {}),
-                  _buildMenuItem('Ngôn ngữ', Icons.language, () {}),
-                  _buildMenuItem('Giao diện', Icons.palette_outlined, () {}),
-                  _buildMenuItem('Trợ giúp', Icons.help_outline, () {}),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 32.h),
+                  
+                  // Feature Menu
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildMenuItem(
+                          'Thông tin cá nhân', 
+                          Icons.person_outline, 
+                          () => context.push(AppRoutes.myInfo),
+                        ),
+                        _buildDivider(),
+                        _buildMenuItem(
+                          'Bảng lương',
+                          Icons.account_balance_wallet_outlined,
+                          () => context.push(AppRoutes.salary),
+                        ),
+                        _buildDivider(),
+                        _buildMenuItem(
+                          'Nghỉ phép',
+                          Icons.event_available_outlined,
+                          () => context.push(AppRoutes.leave),
+                        ),
+                        _buildDivider(),
+                        _buildMenuItem(
+                          'Đánh giá hiệu suất', 
+                          Icons.bar_chart, 
+                          () => context.push(AppRoutes.myEvaluations),
+                        ),
+                        _buildDivider(),
+                        _buildMenuItem(
+                          'Danh bạ đồng nghiệp', 
+                          Icons.people_outline, 
+                          () => context.push(AppRoutes.team),
+                        ),
+                         _buildDivider(),
+                        _buildMenuItem(
+                          'Đổi mật khẩu', 
+                          Icons.lock_reset, 
+                          () => context.push(AppRoutes.changePassword),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 32.h),
                   
                   // Logout Button
                   SizedBox(
@@ -88,6 +141,7 @@ class ProfileScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
+                        backgroundColor: Colors.white,
                       ),
                     ),
                   ),
@@ -100,10 +154,15 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+            ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildDivider() {
+    return Divider(height: 1, color: AppColors.border.withValues(alpha: 0.5), indent: 50.w, endIndent: 16.w);
   }
 
   Widget _buildProfileHeader(user) {
@@ -172,69 +231,35 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        _buildStatItem('Dự án', '5'),
-        _buildStatItem('Tasks hoàn thành', '28'),
-        _buildStatItem('Ngày phép còn', '12'),
-      ],
-    );
-  }
 
-  Widget _buildStatItem(String label, String value) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        margin: EdgeInsets.symmetric(horizontal: 4.w),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11.sp, color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMenuItem(String title, IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 4.w),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
-          ),
-        ),
+        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textSecondary, size: 24.w),
+            Container(
+              padding: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 20.w),
+            ),
             SizedBox(width: 16.w),
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(fontSize: 16.sp, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 16.sp, 
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textHint, size: 24.w),
+            Icon(Icons.chevron_right, color: AppColors.textHint, size: 20.w),
           ],
         ),
       ),

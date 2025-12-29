@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:csv/csv.dart';
 import '../../../domain/entities/employee.dart';
+import '../../../domain/entities/evaluation.dart';
 import '../../../domain/repositories/hr_repository.dart';
 import 'hr_event.dart';
 import 'hr_state.dart';
@@ -21,6 +22,12 @@ class HRBloc extends Bloc<HREvent, HRState> {
     on<HRLoadPositions>(_onLoadPositions);
     on<HRAddEmployee>(_onAddEmployee);
     on<HRImportEmployeesFromCSV>(_onImportEmployeesFromCSV);
+    // New handlers for Contracts, Salaries, Evaluations
+    on<HRLoadContracts>(_onLoadContracts);
+    on<HRLoadSalaries>(_onLoadSalaries);
+    on<HRLoadEvaluations>(_onLoadEvaluations);
+    on<HRApproveEvaluation>(_onApproveEvaluation);
+    on<HRRejectEvaluation>(_onRejectEvaluation);
   }
 
   Future<void> _onLoadDashboard(
@@ -34,7 +41,7 @@ class HRBloc extends Bloc<HREvent, HRState> {
     result.fold(
       (failure) => emit(state.copyWith(
         status: HRStatus.error,
-        errorMessage: failure.message ?? 'Có lỗi xảy ra',
+        errorMessage: failure.message,
       )),
       (stats) => emit(state.copyWith(
         status: HRStatus.loaded,
@@ -301,4 +308,143 @@ class HRBloc extends Bloc<HREvent, HRState> {
       ));
     }
   }
+
+  // ==================== CONTRACT HANDLERS ====================
+
+  Future<void> _onLoadContracts(
+    HRLoadContracts event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.getContracts(statusFilter: event.statusFilter);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message ?? 'Không thể tải hợp đồng',
+      )),
+      (contracts) => emit(state.copyWith(
+        status: HRStatus.loaded,
+        contracts: contracts,
+      )),
+    );
+  }
+
+  // ==================== SALARY HANDLERS ====================
+
+  Future<void> _onLoadSalaries(
+    HRLoadSalaries event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.getSalaries(
+      month: event.month,
+      year: event.year,
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message ?? 'Không thể tải bảng lương',
+      )),
+      (salaries) => emit(state.copyWith(
+        status: HRStatus.loaded,
+        salaries: salaries,
+      )),
+    );
+  }
+
+  // ==================== EVALUATION HANDLERS ====================
+
+  Future<void> _onLoadEvaluations(
+    HRLoadEvaluations event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.getEvaluations(pendingOnly: event.pendingOnly);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message ?? 'Không thể tải đánh giá',
+      )),
+      (evaluations) => emit(state.copyWith(
+        status: HRStatus.loaded,
+        evaluations: evaluations,
+      )),
+    );
+  }
+
+  Future<void> _onApproveEvaluation(
+    HRApproveEvaluation event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.approving));
+
+    final result = await _repository.approveEvaluation(event.evaluationId, event.note);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) {
+        // Update evaluation status in list
+        final updatedEvaluations = state.evaluations.map((e) {
+          if (e.id == event.evaluationId) {
+            return e.copyWith(
+              status: EvaluationStatus.approved,
+              approvedAt: DateTime.now(),
+            );
+          }
+          return e;
+        }).toList();
+
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          evaluations: updatedEvaluations,
+          successMessage: 'Đã duyệt đánh giá',
+        ));
+      },
+    );
+  }
+
+  Future<void> _onRejectEvaluation(
+    HRRejectEvaluation event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.rejecting));
+
+    final result = await _repository.rejectEvaluation(event.evaluationId, event.reason);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) {
+        // Update evaluation status in list
+        final updatedEvaluations = state.evaluations.map((e) {
+          if (e.id == event.evaluationId) {
+            return e.copyWith(
+              status: EvaluationStatus.rejected,
+              rejectReason: event.reason,
+            );
+          }
+          return e;
+        }).toList();
+
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          evaluations: updatedEvaluations,
+          successMessage: 'Đã từ chối đánh giá',
+        ));
+      },
+    );
+  }
 }
+
+

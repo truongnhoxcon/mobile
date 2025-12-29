@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Colors (Purple from DACN)
-  static const Color primary = Color(0xFF8E44AD);        // Main purple
-  static const Color primaryLight = Color(0xFFA569BD);   // Light purple
-  static const Color primaryDark = Color(0xFF7D3C98);    // Dark purple
+  // Primary Colors (Purple from Web SysAdmin Theme - Modern Violet)
+  static const Color primary = Color(0xFF7C3AED);        // Violet 600
+  static const Color primaryLight = Color(0xFF8B5CF6);   // Violet 500
+  static const Color primaryDark = Color(0xFF6D28D9);    // Violet 700
   
   // Secondary Colors (Pink gradient end)
   static const Color secondary = Color(0xFFD7BDE2);      // Light pink/lavender
@@ -79,13 +79,13 @@ class AppColors {
   );
 
   static const LinearGradient headerGradient = LinearGradient(
-    colors: [Color(0xFF9B59B6), Color(0xFFBB8FCE)],
+    colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)], // Violet 600 -> Violet 400
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
   static const LinearGradient sidebarGradient = LinearGradient(
-    colors: [Color(0xFF8E44AD), Color(0xFFD7BDE2)],
+    colors: [Color(0xFF7C3AED), Color(0xFFC4B5FD)], // Violet 600 -> Violet 300
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

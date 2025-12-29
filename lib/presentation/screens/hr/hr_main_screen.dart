@@ -8,9 +8,14 @@ import '../../blocs/blocs.dart';
 import 'tabs/hr_dashboard_tab.dart';
 import 'tabs/hr_employees_tab.dart';
 import 'tabs/hr_leaves_tab.dart';
+import 'tabs/hr_contracts_tab.dart';
+import 'tabs/hr_salary_tab.dart';
+import 'tabs/hr_evaluations_tab.dart';
+
+import '../../widgets/common/pastel_background.dart';
 
 /// HR Main Screen for HR Manager
-/// Contains tabs: Dashboard, Employees, Leaves
+/// Contains tabs: Dashboard, Employees, Leaves, Contracts, Salary, Evaluations
 class HRMainScreen extends StatefulWidget {
   const HRMainScreen({super.key});
 
@@ -25,7 +30,7 @@ class _HRMainScreenState extends State<HRMainScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -40,7 +45,10 @@ class _HRMainScreenState extends State<HRMainScreen>
       create: (_) => di.sl<HRBloc>()
         ..add(const HRLoadDashboard())
         ..add(const HRLoadEmployees())
-        ..add(const HRLoadLeaveRequests()),
+        ..add(const HRLoadLeaveRequests())
+        ..add(const HRLoadContracts())
+        ..add(const HRLoadSalaries())
+        ..add(const HRLoadEvaluations()),
       child: BlocListener<HRBloc, HRState>(
         listenWhen: (previous, current) => 
           previous.status != current.status && 
@@ -55,28 +63,48 @@ class _HRMainScreenState extends State<HRMainScreen>
               'Quản lý Nhân sự',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.sp),
             ),
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: Colors.white,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+              ),
+            ),
             bottom: TabBar(
               controller: _tabController,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textSecondary,
-              indicatorColor: AppColors.primary,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: const [
                 Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard)),
                 Tab(text: 'Nhân viên', icon: Icon(Icons.people)),
                 Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
+                Tab(text: 'Hợp đồng', icon: Icon(Icons.description)),
+                Tab(text: 'Lương', icon: Icon(Icons.paid)),
+                Tab(text: 'Đánh giá', icon: Icon(Icons.rate_review)),
               ],
             ),
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: const [
-              HRDashboardTab(),
-              HREmployeesTab(),
-              HRLeavesTab(),
-            ],
+          body: PastelBackground(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                HRDashboardTab(),
+                HREmployeesTab(),
+                HRLeavesTab(),
+                HRContractsTab(),
+                HRSalaryTab(),
+                HREvaluationsTab(),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+

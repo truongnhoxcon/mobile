@@ -1,10 +1,13 @@
-import 'package:dartz/dartz.dart';
+import 'package:dartz/dartz.dart' hide Evaluation;
 import '../../core/errors/failures.dart';
 import '../entities/employee.dart';
 import '../entities/department.dart';
 import '../entities/position.dart';
 import '../entities/hr_dashboard_stats.dart';
 import '../entities/leave_request.dart';
+import '../entities/contract.dart';
+import '../entities/salary.dart';
+import '../entities/evaluation.dart';
 
 /// HR Repository interface
 abstract class HRRepository {
@@ -48,4 +51,26 @@ abstract class HRRepository {
 
   /// Import employees from CSV
   Future<Either<Failure, List<Employee>>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData);
+
+  // ==================== CONTRACT METHODS ====================
+
+  /// Get contracts
+  Future<Either<Failure, List<Contract>>> getContracts({String? statusFilter});
+
+  // ==================== SALARY METHODS ====================
+
+  /// Get salaries by period
+  Future<Either<Failure, List<Salary>>> getSalaries({int? month, int? year});
+
+  // ==================== EVALUATION METHODS ====================
+
+  /// Get evaluations
+  Future<Either<Failure, List<Evaluation>>> getEvaluations({bool pendingOnly});
+
+  /// Approve evaluation
+  Future<Either<Failure, void>> approveEvaluation(String id, String note);
+
+  /// Reject evaluation
+  Future<Either<Failure, void>> rejectEvaluation(String id, String reason);
 }
+

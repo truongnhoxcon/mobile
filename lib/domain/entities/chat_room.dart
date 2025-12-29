@@ -21,6 +21,25 @@ extension ChatRoomTypeExtension on ChatRoomType {
   }
 }
 
+/// Typing user status
+class TypingUser extends Equatable {
+  final String oderId;
+  final String userName;
+  final DateTime startedAt;
+
+  const TypingUser({
+    required this.oderId,
+    required this.userName,
+    required this.startedAt,
+  });
+  
+  /// Typing status expires after 5 seconds
+  bool get isExpired => DateTime.now().difference(startedAt).inSeconds > 5;
+
+  @override
+  List<Object?> get props => [oderId, userName, startedAt];
+}
+
 class ChatRoom extends Equatable {
   final String id;
   final String name;
@@ -34,6 +53,18 @@ class ChatRoom extends Equatable {
   final String createdBy;
   final DateTime createdAt;
   final String? projectId;
+  
+  // Typing indicator - userId -> TypingUser
+  final Map<String, TypingUser> typingUsers;
+  
+  // Unread count per user - userId -> count
+  final Map<String, int> unreadCounts;
+  
+  // Pinned message  
+  final String? pinnedMessageId;
+  
+  // Muted users - users who muted this room
+  final List<String> mutedBy;
 
   const ChatRoom({
     required this.id,
@@ -48,6 +79,10 @@ class ChatRoom extends Equatable {
     required this.createdBy,
     required this.createdAt,
     this.projectId,
+    this.typingUsers = const {},
+    this.unreadCounts = const {},
+    this.pinnedMessageId,
+    this.mutedBy = const [],
   });
 
   ChatRoom copyWith({
@@ -63,6 +98,10 @@ class ChatRoom extends Equatable {
     String? createdBy,
     DateTime? createdAt,
     String? projectId,
+    Map<String, TypingUser>? typingUsers,
+    Map<String, int>? unreadCounts,
+    String? pinnedMessageId,
+    List<String>? mutedBy,
   }) {
     return ChatRoom(
       id: id ?? this.id,
@@ -77,12 +116,17 @@ class ChatRoom extends Equatable {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       projectId: projectId ?? this.projectId,
+      typingUsers: typingUsers ?? this.typingUsers,
+      unreadCounts: unreadCounts ?? this.unreadCounts,
+      pinnedMessageId: pinnedMessageId ?? this.pinnedMessageId,
+      mutedBy: mutedBy ?? this.mutedBy,
     );
   }
 
   bool get isGroup => type == ChatRoomType.group;
   bool get isProject => type == ChatRoomType.project;
   bool get isPrivate => type == ChatRoomType.private;
+  bool get hasPinnedMessage => pinnedMessageId != null;
 
   /// Get display name for private chat (name of the other person)
   String getDisplayName(String currentUserId) {
@@ -95,9 +139,39 @@ class ChatRoom extends Equatable {
     }
     return name; // Fallback to room name
   }
+  
+  /// Get list of currently typing users (excluding current user)
+  List<TypingUser> getTypingUsers(String currentUserId) {
+    return typingUsers.entries
+        .where((e) => e.key != currentUserId && !e.value.isExpired)
+        .map((e) => e.value)
+        .toList();
+  }
+  
+  /// Get typing indicator text
+  String getTypingText(String currentUserId) {
+    final typing = getTypingUsers(currentUserId);
+    if (typing.isEmpty) return '';
+    if (typing.length == 1) {
+      return '${typing.first.userName} đang gõ...';
+    } else if (typing.length == 2) {
+      return '${typing[0].userName} và ${typing[1].userName} đang gõ...';
+    } else {
+      return '${typing.length} người đang gõ...';
+    }
+  }
+  
+  /// Check if user muted this room
+  bool isMutedBy(String userId) => mutedBy.contains(userId);
+  
+  /// Get unread count for user
+  int getUnreadCount(String userId) => unreadCounts[userId] ?? 0;
 
   @override
-  List<Object?> get props => [id, name, imageUrl, type, memberIds, memberNames, lastMessage, lastMessageSenderId, lastMessageTime, createdBy, createdAt, projectId];
+  List<Object?> get props => [
+    id, name, imageUrl, type, memberIds, memberNames, 
+    lastMessage, lastMessageSenderId, lastMessageTime, 
+    createdBy, createdAt, projectId,
+    typingUsers, unreadCounts, pinnedMessageId, mutedBy,
+  ];
 }
-
-
