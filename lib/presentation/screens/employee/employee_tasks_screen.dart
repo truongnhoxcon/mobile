@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
@@ -41,6 +42,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   bool _loadingTasks = true;
   String _searchQuery = '';
   String? _selectedProjectId;
+  StreamSubscription? _tasksSubscription;
 
   @override
   void initState() {
@@ -48,7 +50,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     _tabController = TabController(length: 3, vsync: this);
     _searchController.addListener(_onSearchChanged);
     _loadProjects();
-    _loadMyTasks();
+    _subscribeToTasks();
   }
 
   Future<void> _loadProjects() async {
@@ -75,31 +77,37 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     }
   }
 
-  Future<void> _loadMyTasks() async {
+  void _subscribeToTasks() {
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.user?.id ?? '';
+    
+    if (userId.isEmpty) return;
+    
     setState(() => _loadingTasks = true);
     
-    try {
-      final authState = context.read<AuthBloc>().state;
-      final userId = authState.user?.id ?? '';
-      
-      if (userId.isEmpty) return;
-      
-      final datasource = IssueDataSourceImpl();
-      final issueModels = await datasource.getIssuesByAssignee(userId);
-      if (mounted) {
-        setState(() {
-          _myTasks = issueModels.map((m) => m.toEntity()).toList();
-          _filteredTasks = _myTasks;
-          _loadingTasks = false;
-        });
-        // Re-apply filter after loading
-        _filterTasks();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadingTasks = false);
-      }
-    }
+    final datasource = IssueDataSourceImpl();
+    _tasksSubscription = datasource.issuesStreamByAssignee(userId).listen(
+      (issueModels) {
+        if (mounted) {
+          setState(() {
+            _myTasks = issueModels.map((m) => m.toEntity()).toList();
+            _filteredTasks = _myTasks;
+            _loadingTasks = false;
+          });
+          _filterTasks();
+        }
+      },
+      onError: (e) {
+        if (mounted) {
+          setState(() => _loadingTasks = false);
+        }
+      },
+    );
+  }
+
+  Future<void> _loadMyTasks() async {
+    // For pull-to-refresh, just wait a bit for the stream to update
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   void _onSearchChanged() {
@@ -124,6 +132,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
 
   @override
   void dispose() {
+    _tasksSubscription?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();

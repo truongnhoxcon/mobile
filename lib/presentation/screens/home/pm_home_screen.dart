@@ -12,7 +12,7 @@ import '../../../config/routes/app_router.dart';
 import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/user.dart';
 import '../../blocs/blocs.dart';
-import '../pm/tabs/pm_dashboard_tab.dart';
+import '../employee/employee_tasks_screen.dart';
 import '../pm/tabs/pm_approvals_tab.dart';
 import '../chat/chat_list_screen.dart';
 
@@ -30,7 +30,7 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 2 || _currentIndex == 3 ? null : _buildAppBar(),
+      appBar: _currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3 ? null : _buildAppBar(),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(AppRoutes.aiChat),
@@ -83,7 +83,7 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
   Widget _buildBody() {
     switch (_currentIndex) {
       case 0:
-        return const PMDashboardTab();
+        return const EmployeeTasksScreen();
       case 1:
         return const PMApprovalsTab();
       case 2:
@@ -91,7 +91,7 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
       case 3:
         return const _PMProfileTab();
       default:
-        return const PMDashboardTab();
+        return const EmployeeTasksScreen();
     }
   }
 

@@ -12,6 +12,7 @@ abstract class IssueDataSource {
   Future<void> deleteIssue(String id);
   Future<void> assignIssue(String issueId, String? userId);
   Stream<List<IssueModel>> issuesStreamByProject(String projectId);
+  Stream<List<IssueModel>> issuesStreamByAssignee(String userId);
 }
 
 class IssueDataSourceImpl implements IssueDataSource {
@@ -104,9 +105,33 @@ class IssueDataSourceImpl implements IssueDataSource {
   Stream<List<IssueModel>> issuesStreamByProject(String projectId) {
     return _issuesRef
         .where('projectId', isEqualTo: projectId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+          final issues = snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+          // Sort in memory to avoid composite index
+          issues.sort((a, b) {
+            final aDate = a.createdAt ?? DateTime(2000);
+            final bDate = b.createdAt ?? DateTime(2000);
+            return bDate.compareTo(aDate);
+          });
+          return issues;
+        });
+  }
+
+  @override
+  Stream<List<IssueModel>> issuesStreamByAssignee(String userId) {
+    return _issuesRef
+        .where('assigneeId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          final issues = snapshot.docs.map((doc) => IssueModel.fromFirestore(doc)).toList();
+          // Sort in memory to avoid composite index
+          issues.sort((a, b) {
+            final aDate = a.createdAt ?? DateTime(2000);
+            final bDate = b.createdAt ?? DateTime(2000);
+            return bDate.compareTo(aDate);
+          });
+          return issues;
+        });
   }
 }
