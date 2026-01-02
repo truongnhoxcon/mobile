@@ -15,6 +15,8 @@ import '../hr/tabs/hr_dashboard_tab.dart';
 import '../hr/tabs/hr_employees_tab.dart';
 import '../hr/tabs/hr_departments_tab.dart';
 import '../hr/tabs/hr_leaves_tab.dart';
+import '../chat/chat_list_screen.dart';
+import '../profile/profile_screen.dart';
 
 /// HR Manager Home Screen - Completely different layout from Employee
 class HRHomeScreen extends StatefulWidget {
@@ -36,7 +38,8 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
         ..add(const HRLoadLeaveRequests())
         ..add(const HRLoadDepartments()),
       child: Scaffold(
-        appBar: _buildAppBar(),
+        // Hide AppBar for Chat(2) and Profile(3) since they have their own AppBars
+        appBar: (_currentIndex == 2 || _currentIndex == 3) ? null : _buildAppBar(),
         body: _buildBody(),
         floatingActionButton: FloatingActionButton(
           onPressed: () => context.push(AppRoutes.aiChat),
@@ -94,9 +97,9 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
       case 1:
         return _buildAttendanceManagement();
       case 2:
-        return _buildChatPlaceholder();
+        return _buildChatScreen();
       case 3:
-        return _buildProfilePlaceholder();
+        return _buildProfileScreen();
       default:
         return _buildHRDashboard();
     }
@@ -286,46 +289,12 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
     );
   }
 
-  Widget _buildChatPlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 64.w, color: AppColors.textSecondary),
-          SizedBox(height: 16.h),
-          Text(
-            'Tin nhắn nội bộ',
-            style: TextStyle(fontSize: 18.sp, color: AppColors.textSecondary),
-          ),
-          SizedBox(height: 16.h),
-          ElevatedButton(
-            onPressed: () => context.push(AppRoutes.chat),
-            child: const Text('Mở Chat'),
-          ),
-        ],
-      ),
-    );
+  Widget _buildChatScreen() {
+    return const ChatListScreen();
   }
 
-  Widget _buildProfilePlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person_outline, size: 64.w, color: AppColors.textSecondary),
-          SizedBox(height: 16.h),
-          Text(
-            'Hồ sơ cá nhân',
-            style: TextStyle(fontSize: 18.sp, color: AppColors.textSecondary),
-          ),
-          SizedBox(height: 16.h),
-          ElevatedButton(
-            onPressed: () => context.push(AppRoutes.profile),
-            child: const Text('Xem Hồ sơ'),
-          ),
-        ],
-      ),
-    );
+  Widget _buildProfileScreen() {
+    return const ProfileScreen();
   }
 
   Widget _buildBottomNavBar() {

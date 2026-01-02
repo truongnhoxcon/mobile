@@ -68,7 +68,10 @@ abstract class HRRepository {
   });
 
   /// Import employees from CSV
-  Future<Either<Failure, List<Employee>>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData);
+  Future<Either<Failure, List<Employee>>> importEmployeesFromCSV(
+    List<Map<String, dynamic>> employeesData, {
+    String? defaultDepartmentId,
+  });
 
   // ==================== CONTRACT METHODS ====================
 

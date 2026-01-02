@@ -142,11 +142,15 @@ class HRAddEmployee extends HREvent {
 /// Import employees from CSV file
 class HRImportEmployeesFromCSV extends HREvent {
   final String csvContent;
+  final String? defaultDepartmentId;
 
-  const HRImportEmployeesFromCSV({required this.csvContent});
+  const HRImportEmployeesFromCSV({
+    required this.csvContent,
+    this.defaultDepartmentId,
+  });
 
   @override
-  List<Object?> get props => [csvContent];
+  List<Object?> get props => [csvContent, defaultDepartmentId];
 }
 
 // ==================== CONTRACT EVENTS ====================

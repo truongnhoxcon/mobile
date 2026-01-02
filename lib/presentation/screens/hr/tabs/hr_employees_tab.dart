@@ -223,52 +223,90 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
         return;
       }
 
-      // Show confirmation dialog
-      final confirm = await showDialog<bool>(
+      // Show confirmation dialog with department selection
+      final departments = this.context.read<HRBloc>().state.departments;
+      
+      // Return Map with confirm status and selected department ID
+      final dialogResult = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.upload_file, color: AppColors.success),
-              SizedBox(width: 8.w),
-              const Text('Import CSV'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('File: ${file.name}'),
-              SizedBox(height: 8.h),
-              Text(
-                'Format file CSV cần có các cột:\n• hoTen hoặc name (bắt buộc)\n• email\n• soDienThoai hoặc phone\n• gioiTinh hoặc gender',
-                style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+        builder: (ctx) {
+          String? tempDepartmentId;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.upload_file, color: AppColors.success),
+                  SizedBox(width: 8.w),
+                  const Text('Import CSV'),
+                ],
               ),
-              SizedBox(height: 16.h),
-              const Text('Bạn có muốn import file này?'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.upload),
-              label: const Text('Import'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
-                foregroundColor: Colors.white,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('File: ${file.name}'),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Format file CSV cần có các cột:\n• hoTen hoặc name (bắt buộc)\n• email\n• soDienThoai hoặc phone\n• gioiTinh hoặc gender',
+                    style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+                  ),
+                  SizedBox(height: 16.h),
+                  // Department Dropdown for imported employees
+                  DropdownButtonFormField<String>(
+                    value: tempDepartmentId,
+                    decoration: InputDecoration(
+                      labelText: 'Phòng ban cho nhân viên import',
+                      prefixIcon: const Icon(Icons.business),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    ),
+                    hint: const Text('Chọn phòng ban'),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('-- Không chọn --'),
+                      ),
+                      ...departments.map((dept) => DropdownMenuItem<String>(
+                        value: dept.id,
+                        child: Text(dept.tenPhongBan),
+                      )),
+                    ],
+                    onChanged: (value) => setDialogState(() => tempDepartmentId = value),
+                  ),
+                  SizedBox(height: 16.h),
+                  const Text('Bạn có muốn import file này?'),
+                ],
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Hủy'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, {
+                    'confirm': true,
+                    'departmentId': tempDepartmentId,
+                  }),
+                  icon: const Icon(Icons.upload),
+                  label: const Text('Import'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
 
-      if (confirm == true) {
+      if (dialogResult != null && dialogResult['confirm'] == true) {
         // ignore: use_build_context_synchronously
-        this.context.read<HRBloc>().add(HRImportEmployeesFromCSV(csvContent: csvContent));
+        this.context.read<HRBloc>().add(HRImportEmployeesFromCSV(
+          csvContent: csvContent,
+          defaultDepartmentId: dialogResult['departmentId'] as String?,
+        ));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -283,127 +321,168 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     final phoneController = TextEditingController();
-    String gioiTinh = 'Nam';
+    
+    // Use a map to hold mutable state that can be captured properly
+    final formState = <String, dynamic>{
+      'gioiTinh': 'Nam',
+      'departmentId': null,
+    };
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.person_add, color: AppColors.primary),
-              SizedBox(width: 8.w),
-              const Text('Thêm nhân viên'),
+        builder: (ctx, setDialogState) {
+          final departments = this.context.read<HRBloc>().state.departments;
+          
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.person_add, color: AppColors.primary),
+                SizedBox(width: 8.w),
+                const Text('Thêm nhân viên'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: hoTenController,
+                      decoration: const InputDecoration(
+                        labelText: 'Họ và tên *',
+                        prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Vui lòng nhập họ tên' : null,
+                    ),
+                    SizedBox(height: 12.h),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email *',
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Vui lòng nhập email';
+                        if (!v.contains('@')) return 'Email không hợp lệ';
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 12.h),
+                    TextFormField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Mật khẩu *',
+                        prefixIcon: Icon(Icons.lock),
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
+                        if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 12.h),
+                    TextFormField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Số điện thoại',
+                        prefixIcon: Icon(Icons.phone),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    SizedBox(height: 12.h),
+                    // Department Dropdown
+                    DropdownButtonFormField<String>(
+                      value: formState['departmentId'] as String?,
+                      decoration: const InputDecoration(
+                        labelText: 'Phòng ban',
+                        prefixIcon: Icon(Icons.business),
+                        border: OutlineInputBorder(),
+                      ),
+                      hint: const Text('Chọn phòng ban'),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('-- Chưa phân phòng --'),
+                        ),
+                        ...departments.map((dept) => DropdownMenuItem<String>(
+                          value: dept.id,
+                          child: Text(dept.tenPhongBan),
+                        )),
+                      ],
+                      onChanged: (value) {
+                        formState['departmentId'] = value;
+                        setDialogState(() {});
+                      },
+                    ),
+                    SizedBox(height: 12.h),
+                    Row(
+                      children: [
+                        Text('Giới tính:', style: TextStyle(fontSize: 14.sp)),
+                        SizedBox(width: 16.w),
+                        ChoiceChip(
+                          label: const Text('Nam'),
+                          selected: formState['gioiTinh'] == 'Nam',
+                          onSelected: (_) {
+                            formState['gioiTinh'] = 'Nam';
+                            setDialogState(() {});
+                          },
+                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        ),
+                        SizedBox(width: 8.w),
+                        ChoiceChip(
+                          label: const Text('Nữ'),
+                          selected: formState['gioiTinh'] == 'Nữ',
+                          onSelected: (_) {
+                            formState['gioiTinh'] = 'Nữ';
+                            setDialogState(() {});
+                          },
+                          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    this.context.read<HRBloc>().add(HRAddEmployee(
+                      hoTen: hoTenController.text.trim(),
+                      email: emailController.text.trim(),
+                      password: passwordController.text,
+                      soDienThoai: phoneController.text.trim().isNotEmpty 
+                          ? phoneController.text.trim() 
+                          : null,
+                      gioiTinh: formState['gioiTinh'] as String,
+                      phongBanId: formState['departmentId'] as String?,
+                    ));
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('Tạo'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ],
-          ),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: hoTenController,
-                    decoration: const InputDecoration(
-                      labelText: 'Họ và tên *',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) => v == null || v.isEmpty ? 'Vui lòng nhập họ tên' : null,
-                  ),
-                  SizedBox(height: 12.h),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email *',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Vui lòng nhập email';
-                      if (!v.contains('@')) return 'Email không hợp lệ';
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12.h),
-                  TextFormField(
-                    controller: passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mật khẩu *',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
-                    ),
-                    obscureText: true,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
-                      if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12.h),
-                  TextFormField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Số điện thoại',
-                      prefixIcon: Icon(Icons.phone),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  SizedBox(height: 12.h),
-                  Row(
-                    children: [
-                      Text('Giới tính:', style: TextStyle(fontSize: 14.sp)),
-                      SizedBox(width: 16.w),
-                      ChoiceChip(
-                        label: const Text('Nam'),
-                        selected: gioiTinh == 'Nam',
-                        onSelected: (_) => setDialogState(() => gioiTinh = 'Nam'),
-                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                      SizedBox(width: 8.w),
-                      ChoiceChip(
-                        label: const Text('Nữ'),
-                        selected: gioiTinh == 'Nữ',
-                        onSelected: (_) => setDialogState(() => gioiTinh = 'Nữ'),
-                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  this.context.read<HRBloc>().add(HRAddEmployee(
-                    hoTen: hoTenController.text.trim(),
-                    email: emailController.text.trim(),
-                    password: passwordController.text,
-                    soDienThoai: phoneController.text.trim().isNotEmpty 
-                        ? phoneController.text.trim() 
-                        : null,
-                    gioiTinh: gioiTinh,
-                  ));
-                  Navigator.pop(dialogContext);
-                }
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Tạo'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

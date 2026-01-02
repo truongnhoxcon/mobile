@@ -658,66 +658,170 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
         ),
         padding: EdgeInsets.all(16.w),
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                issue.title,
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (issue.description?.isNotEmpty == true) ...[
+                SizedBox(height: 8.h),
+                Text(
+                  issue.description!,
+                  style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              SizedBox(height: 16.h),
+              Divider(color: AppColors.border),
+              ListTile(
+                leading: Icon(Icons.person_add, color: AppColors.primary),
+                title: const Text('Giao việc'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAssignDialog(context, issue);
+                },
+              ),
+              ...IssueStatus.values.where((s) => s != currentStatus).map((s) => ListTile(
+                leading: Icon(
+                  s == IssueStatus.done ? Icons.check_circle : Icons.arrow_forward,
+                  color: s == IssueStatus.done ? AppColors.success : AppColors.textSecondary,
+                ),
+                title: Text('Chuyển sang: ${s.displayName}'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.read<IssueBloc>().add(IssueUpdateStatus(issue.id, s));
+                },
+              )),
+              // Delete option - only for PM, Admin, or Owner
+              Builder(
+                builder: (context) {
+                  final authState = this.context.read<AuthBloc>().state;
+                  final isOwner = _project?.ownerId == authState.user?.id;
+                  final canDelete = isOwner || 
+                                   authState.user?.role == UserRole.projectManager ||
+                                   authState.user?.role == UserRole.admin;
+                  
+                  if (!canDelete) return const SizedBox.shrink();
+                  
+                  return Column(
+                    children: [
+                      Divider(color: AppColors.border),
+                      ListTile(
+                        leading: Icon(Icons.delete, color: AppColors.error),
+                        title: Text('Xóa công việc', style: TextStyle(color: AppColors.error)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showDeleteConfirmDialog(context, issue);
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+              SizedBox(height: 16.h),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Show delete confirmation dialog
+  void _showDeleteConfirmDialog(BuildContext context, Issue issue) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: AppColors.error),
+            SizedBox(width: 8.w),
+            const Text('Xác nhận xóa'),
+          ],
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2.r),
+            Text('Bạn có chắc muốn xóa công việc này?'),
+            SizedBox(height: 12.h),
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                issue.title,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 12.h),
             Text(
-              issue.title,
-              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (issue.description?.isNotEmpty == true) ...[
-              SizedBox(height: 8.h),
-              Text(
-                issue.description!,
-                style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+              'Hành động này không thể hoàn tác.',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: AppColors.error,
+                fontStyle: FontStyle.italic,
               ),
-            ],
-            SizedBox(height: 16.h),
-            Divider(color: AppColors.border),
-            ListTile(
-              leading: Icon(Icons.person_add, color: AppColors.primary),
-              title: const Text('Giao việc'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showAssignDialog(context, issue);
-              },
             ),
-            ...IssueStatus.values.where((s) => s != currentStatus).map((s) => ListTile(
-              leading: Icon(
-                s == IssueStatus.done ? Icons.check_circle : Icons.arrow_forward,
-                color: s == IssueStatus.done ? AppColors.success : AppColors.textSecondary,
-              ),
-              title: Text('Chuyển sang: ${s.displayName}'),
-              onTap: () {
-                Navigator.pop(ctx);
-                context.read<IssueBloc>().add(IssueUpdateStatus(issue.id, s));
-              },
-            )),
-            SizedBox(height: 16.h),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              this.context.read<IssueBloc>().add(IssueDelete(issue.id));
+              ScaffoldMessenger.of(this.context).showSnackBar(
+                SnackBar(
+                  content: Text('Đã xóa công việc "${issue.title}"'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            icon: const Icon(Icons.delete),
+            label: const Text('Xóa'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -34,6 +34,7 @@ import '../../presentation/screens/files/files_screen.dart';
 import '../../presentation/screens/employee/my_evaluations_screen.dart';
 import '../../presentation/screens/profile/change_password_screen.dart';
 import '../../presentation/screens/profile/team_screen.dart';
+import '../../presentation/screens/hr/department_detail_screen.dart';
 
 /// App Route Names
 class AppRoutes {
@@ -65,6 +66,7 @@ class AppRoutes {
   static const String files = '/files';
   static const String changePassword = '/profile/change-password'; // Updated nesting
   static const String team = '/profile/team'; // Updated nesting
+  static const String departmentDetail = '/hr/department/:id';
 }
 
 /// App Router
@@ -338,6 +340,18 @@ class AppRouter {
         name: 'pmCreateTask',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const CreateTaskScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.departmentDetail,
+        name: 'departmentDetail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final departmentId = state.pathParameters['id'] ?? '';
+          return BlocProvider.value(
+            value: sl<HRBloc>(),
+            child: DepartmentDetailScreen(departmentId: departmentId),
+          );
+        },
       ),
     ],
     

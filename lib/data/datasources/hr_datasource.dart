@@ -70,7 +70,10 @@ abstract class HRDataSource {
   });
 
   /// Import employees from CSV (only creates employee records, not auth users)
-  Future<List<Employee>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData);
+  Future<List<Employee>> importEmployeesFromCSV(
+    List<Map<String, dynamic>> employeesData, {
+    String? defaultDepartmentId,
+  });
 
   // ==================== CONTRACT METHODS ====================
   
@@ -425,6 +428,24 @@ class HRDataSourceImpl implements HRDataSource {
 
       final docRef = await _employeesRef.add(employeeData);
 
+      // Get department name if department is assigned
+      String? tenPhongBan;
+      if (phongBanId != null && phongBanId.isNotEmpty) {
+        // Update department employee count
+        await _departmentsRef.doc(phongBanId).update({
+          'soNhanVien': FieldValue.increment(1),
+        });
+        
+        // Fetch department name
+        final deptDoc = await _departmentsRef.doc(phongBanId).get();
+        if (deptDoc.exists) {
+          tenPhongBan = deptDoc.data()?['tenPhongBan'] as String?;
+          
+          // Update employee document with tenPhongBan
+          await docRef.update({'tenPhongBan': tenPhongBan});
+        }
+      }
+
       // Sign back in as current user (HR Manager)
       // Note: In production, use Admin SDK instead
       if (currentUser != null) {
@@ -441,6 +462,7 @@ class HRDataSourceImpl implements HRDataSource {
         soDienThoai: soDienThoai,
         gioiTinh: gioiTinh,
         phongBanId: phongBanId,
+        tenPhongBan: tenPhongBan,
         chucVuId: chucVuId,
         ngayVaoLam: DateTime.now(),
         status: EmployeeStatus.working,
@@ -451,7 +473,10 @@ class HRDataSourceImpl implements HRDataSource {
   }
 
   @override
-  Future<List<Employee>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData) async {
+  Future<List<Employee>> importEmployeesFromCSV(
+    List<Map<String, dynamic>> employeesData, {
+    String? defaultDepartmentId,
+  }) async {
     final List<Employee> importedEmployees = [];
     
     // Get current employee count for generating codes
@@ -463,6 +488,10 @@ class HRDataSourceImpl implements HRDataSource {
         codeCounter++;
         final maNhanVien = 'NV${codeCounter.toString().padLeft(4, '0')}';
 
+        // Use defaultDepartmentId if provided, otherwise try to get from CSV
+        final phongBanId = defaultDepartmentId ?? 
+            data['phongbanid'] ?? data['phong_ban'] ?? '';
+
         final employeeData = {
           'maNhanVien': maNhanVien,
           'hoTen': data['hoten'] ?? data['ho_ten'] ?? data['name'] ?? '',
@@ -471,7 +500,7 @@ class HRDataSourceImpl implements HRDataSource {
           'gioiTinh': data['gioitinh'] ?? data['gioi_tinh'] ?? data['gender'] ?? 'Nam',
           'cccd': data['cccd'] ?? data['cmnd'] ?? '',
           'diaChi': data['diachi'] ?? data['dia_chi'] ?? data['address'] ?? '',
-          'phongBanId': data['phongbanid'] ?? data['phong_ban'] ?? '',
+          'phongBanId': phongBanId,
           'chucVuId': data['chucvuid'] ?? data['chuc_vu'] ?? '',
           'ngayVaoLam': FieldValue.serverTimestamp(),
           'status': 'DANG_LAM_VIEC',
@@ -479,6 +508,21 @@ class HRDataSourceImpl implements HRDataSource {
         };
 
         final docRef = await _employeesRef.add(employeeData);
+
+        // Get department name and update count if department is assigned
+        String? tenPhongBan;
+        if (phongBanId.isNotEmpty) {
+          await _departmentsRef.doc(phongBanId).update({
+            'soNhanVien': FieldValue.increment(1),
+          });
+          
+          // Fetch department name
+          final deptDoc = await _departmentsRef.doc(phongBanId).get();
+          if (deptDoc.exists) {
+            tenPhongBan = deptDoc.data()?['tenPhongBan'] as String?;
+            await docRef.update({'tenPhongBan': tenPhongBan});
+          }
+        }
 
         importedEmployees.add(Employee(
           id: docRef.id,
@@ -489,6 +533,8 @@ class HRDataSourceImpl implements HRDataSource {
           gioiTinh: employeeData['gioiTinh'] as String,
           cccd: employeeData['cccd'] as String?,
           diaChi: employeeData['diaChi'] as String?,
+          phongBanId: phongBanId.isNotEmpty ? phongBanId : null,
+          tenPhongBan: tenPhongBan,
           ngayVaoLam: DateTime.now(),
           status: EmployeeStatus.working,
         ));

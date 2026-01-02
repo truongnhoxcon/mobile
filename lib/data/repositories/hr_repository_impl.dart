@@ -182,9 +182,15 @@ class HRRepositoryImpl implements HRRepository {
   }
 
   @override
-  Future<Either<Failure, List<Employee>>> importEmployeesFromCSV(List<Map<String, dynamic>> employeesData) async {
+  Future<Either<Failure, List<Employee>>> importEmployeesFromCSV(
+    List<Map<String, dynamic>> employeesData, {
+    String? defaultDepartmentId,
+  }) async {
     try {
-      final employees = await _dataSource.importEmployeesFromCSV(employeesData);
+      final employees = await _dataSource.importEmployeesFromCSV(
+        employeesData,
+        defaultDepartmentId: defaultDepartmentId,
+      );
       return Right(employees);
     } catch (e) {
       return Left(ServerFailure(message: 'Không thể import nhân viên: $e'));

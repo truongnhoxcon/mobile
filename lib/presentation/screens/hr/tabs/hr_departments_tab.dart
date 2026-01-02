@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../domain/entities/department.dart';
 import '../../../blocs/blocs.dart';
+import '../department_detail_screen.dart';
 
 /// HR Departments Tab - Quản lý phòng ban
 class HRDepartmentsTab extends StatefulWidget {
@@ -239,25 +240,36 @@ class _HRDepartmentsTabState extends State<HRDepartmentsTab> {
   }
 
   Widget _buildDepartmentCard(Department department) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          // Icon
-          Container(
-            padding: EdgeInsets.all(12.w),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(Icons.business, color: AppColors.primary, size: 28.w),
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (ctx) => BlocProvider.value(
+            value: context.read<HRBloc>(),
+            child: DepartmentDetailScreen(departmentId: department.id),
           ),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Icon(Icons.business, color: AppColors.primary, size: 28.w),
+            ),
           SizedBox(width: 16.w),
           
           // Info
@@ -341,7 +353,8 @@ class _HRDepartmentsTabState extends State<HRDepartmentsTab> {
           ),
         ],
       ),
-    );
+      ),  // Close Container
+    );    // Close InkWell
   }
 
   void _showEditDepartmentDialog(BuildContext context, Department department) {

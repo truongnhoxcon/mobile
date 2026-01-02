@@ -378,8 +378,11 @@ class HRBloc extends Bloc<HREvent, HRState> {
         return;
       }
 
-      // Import employees
-      final result = await _repository.importEmployeesFromCSV(employeesData);
+      // Import employees with optional default department
+      final result = await _repository.importEmployeesFromCSV(
+        employeesData,
+        defaultDepartmentId: event.defaultDepartmentId,
+      );
 
       result.fold(
         (failure) => emit(state.copyWith(

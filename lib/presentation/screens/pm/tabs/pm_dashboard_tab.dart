@@ -15,6 +15,7 @@ import '../../../../domain/entities/issue.dart';
 import '../../../../data/datasources/project_datasource.dart';
 import '../../../../data/datasources/issue_datasource.dart';
 import '../../../blocs/blocs.dart';
+import '../../files/files_screen.dart';
 
 /// PM Dashboard Tab - Dashboard + Tasks + Projects
 class PMDashboardTab extends StatefulWidget {
@@ -39,6 +40,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
   bool _loadingTasks = true;
   String? _tasksError;
   String _searchQuery = '';
+  String? _selectedProjectId;
 
   @override
   void initState() {
@@ -116,19 +118,22 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
   }
 
   void _onSearchChanged() {
-    _filterTasks(_searchController.text);
+    _filterTasks();
   }
 
-  void _filterTasks(String query) {
+  void _filterTasks() {
     setState(() {
-      _searchQuery = query;
-      if (query.isEmpty) {
-        _filteredTasks = _myTasks;
-      } else {
-        _filteredTasks = _myTasks
-            .where((task) => task.title.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
+      _searchQuery = _searchController.text;
+      
+      _filteredTasks = _myTasks.where((task) {
+        final matchesSearch = _searchQuery.isEmpty || 
+            task.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        
+        final matchesProject = _selectedProjectId == null || 
+            task.projectId == _selectedProjectId;
+            
+        return matchesSearch && matchesProject;
+      }).toList();
     });
   }
 
@@ -143,9 +148,6 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // KPI Summary Cards
-        _buildKPICards(),
-        
         // Tab Bar
         Container(
           color: AppColors.surface,
@@ -157,7 +159,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
             tabs: const [
               Tab(text: 'Tác vụ của tôi', icon: Icon(Icons.list_alt)),
               Tab(text: 'Dự án', icon: Icon(Icons.folder_open)),
-              Tab(text: 'Hiệu suất', icon: Icon(Icons.analytics)),
+              Tab(text: 'Tài liệu', icon: Icon(Icons.description_outlined)),
             ],
           ),
         ),
@@ -169,7 +171,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
             children: [
               _buildMyTasksTab(),
               _buildProjectsTab(),
-              _buildPerformanceTab(),
+              const FilesScreen(isEmbedded: true),
             ],
           ),
         ),
@@ -177,53 +179,7 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
     );
   }
 
-  Widget _buildKPICards() {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      color: AppColors.surface,
-      child: Row(
-        children: [
-          Expanded(child: _buildKPICard('Dự án', '5', Icons.folder, AppColors.primary)),
-          SizedBox(width: 12.w),
-          Expanded(child: _buildKPICard('Hoàn thành', '12', Icons.check_circle, AppColors.success)),
-          SizedBox(width: 12.w),
-          Expanded(child: _buildKPICard('Quá hạn', '3', Icons.warning, AppColors.error)),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildKPICard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24.w),
-          SizedBox(height: 4.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildMyTasksTab() {
     return RefreshIndicator(
@@ -249,43 +205,73 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
               : ListView(
                   padding: EdgeInsets.all(16.w),
                   children: [
-                    // Toolbar
+                    // Toolbar - Filter and Search Row
                     Row(
                       children: [
                         Expanded(
+                          flex: 3,
                           child: TextField(
                             controller: _searchController,
                             decoration: InputDecoration(
-                              hintText: 'Tìm kiếm tác vụ...',
+                              hintText: 'Tìm kiếm...',
                               prefixIcon: const Icon(Icons.search),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                      },
-                                    )
-                                  : null,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
                               filled: true,
                               fillColor: AppColors.surface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12.r),
                                 borderSide: BorderSide.none,
                               ),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                             ),
                           ),
                         ),
-                        SizedBox(width: 12.w),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            context.push(AppRoutes.pmCreateTask);
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Tạo'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12.w),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedProjectId,
+                                hint: Text('Tất cả DA', style: TextStyle(fontSize: 12.sp)),
+                                isExpanded: true,
+                                items: [
+                                  DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text('Tất cả dự án', style: TextStyle(fontSize: 12.sp)),
+                                  ),
+                                  ..._projects.map((p) => DropdownMenuItem<String>(
+                                    value: p.id,
+                                    child: Text(p.name, style: TextStyle(fontSize: 12.sp), overflow: TextOverflow.ellipsis),
+                                  )),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedProjectId = value;
+                                    _filterTasks();
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        // Add button - circular + icon
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: IconButton(
+                            onPressed: () => context.push(AppRoutes.pmCreateTask),
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            constraints: BoxConstraints(minWidth: 44.w, minHeight: 44.h),
+                            padding: EdgeInsets.zero,
                           ),
                         ),
                       ],
@@ -350,66 +336,114 @@ class _PMDashboardTabState extends State<PMDashboardTab> with SingleTickerProvid
     }
     
     final dueDate = task.dueDate != null 
-        ? DateFormat('dd/MM/yyyy').format(task.dueDate!)
-        : 'Chưa có';
+        ? DateFormat('dd/MM').format(task.dueDate!)
+        : '--/--';
+
+    // Find Project Name
+    final project = _projects.where((p) => p.id == task.projectId).firstOrNull;
+    final projectName = project?.name ?? 'Unknown Project';
 
     return InkWell(
-      onTap: () {
-        context.push('/task/${task.id}');
-      },
+      onTap: () => context.pushNamed('taskDetail', pathParameters: {'id': task.id}),
       borderRadius: BorderRadius.circular(12.r),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(12.w),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Project Name Tag
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+              margin: EdgeInsets.only(bottom: 8.h),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    task.title,
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  Icon(Icons.folder_outlined, size: 12.w, color: AppColors.primary),
+                  SizedBox(width: 4.w),
+                  Flexible(
+                    child: Text(
+                      projectName,
+                      style: TextStyle(fontSize: 11.sp, color: AppColors.primary, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Row(
-                    children: [
-                      Icon(Icons.schedule, size: 14.w, color: AppColors.textSecondary),
-                      SizedBox(width: 4.w),
-                      Text(dueDate, style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
-                    ],
                   ),
                 ],
               ),
             ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-              child: Text(
-                statusText,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
+            
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.title,
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 12.w, color: AppColors.textSecondary),
+                          SizedBox(width: 4.w),
+                          Text(dueDate, style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+                          SizedBox(width: 12.w),
+                          Icon(Icons.flag, size: 12.w, color: _getPriorityColor(task.priority)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getPriorityColor(IssuePriority priority) {
+    switch (priority) {
+      case IssuePriority.critical: return Colors.red;
+      case IssuePriority.high: return Colors.orange;
+      case IssuePriority.medium: return Colors.blue;
+      case IssuePriority.low: return Colors.grey;
+    }
   }
 
 
