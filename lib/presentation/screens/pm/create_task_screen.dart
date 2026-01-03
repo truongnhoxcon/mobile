@@ -34,6 +34,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   IssuePriority _priority = IssuePriority.medium;
   DateTime? _dueDate;
   bool _isLoading = false;
+  bool _assignToMe = true; // Default: assign to self
   List<Project> _projects = [];
   bool _loadingProjects = true;
 
@@ -107,6 +108,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         type: _type,
         priority: _priority,
         status: IssueStatus.todo,
+        assigneeId: _assignToMe ? userId : null, // Assign to self if checked
         reporterId: userId,
         dueDate: _dueDate,
       );
@@ -328,7 +330,19 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 ),
               ),
             ),
-            SizedBox(height: 32.h),
+            SizedBox(height: 20.h),
+
+            // Assign to me checkbox
+            CheckboxListTile(
+              value: _assignToMe,
+              onChanged: (value) => setState(() => _assignToMe = value ?? true),
+              title: Text('Giao cho tôi', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
+              subtitle: Text('Tự giao công việc này cho bản thân', style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary)),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              activeColor: AppColors.primary,
+            ),
+            SizedBox(height: 16.h),
 
             // Submit Button
             SizedBox(

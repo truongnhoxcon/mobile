@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/department.dart';
 import '../../domain/entities/position.dart';
@@ -99,13 +100,10 @@ abstract class HRDataSource {
 
 class HRDataSourceImpl implements HRDataSource {
   final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
 
   HRDataSourceImpl({
     FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  })  : _firestore = firestore ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _employeesRef =>
       _firestore.collection('employees');
@@ -383,80 +381,91 @@ class HRDataSourceImpl implements HRDataSource {
     String? phongBanId,
     String? chucVuId,
   }) async {
-    // Store current user to restore later
-    final currentUser = _auth.currentUser;
-    
     try {
-      // Create Firebase Auth user for the new employee
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      final newUserId = userCredential.user!.uid;
-      await userCredential.user!.updateDisplayName(hoTen);
-
       // Generate employee code
       final employeesCount = (await _employeesRef.get()).docs.length;
       final maNhanVien = 'NV${(employeesCount + 1).toString().padLeft(4, '0')}';
 
-      // Create user document
-      await _firestore.collection('users').doc(newUserId).set({
-        'email': email,
-        'displayName': hoTen,
-        'phoneNumber': soDienThoai,
-        'role': 'EMPLOYEE',
-        'departmentId': phongBanId,
-        'position': chucVuId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'isActive': true,
-      });
+      // Get department name if department is assigned
+      String? tenPhongBan;
+      if (phongBanId != null && phongBanId.isNotEmpty) {
+        final deptDoc = await _departmentsRef.doc(phongBanId).get();
+        if (deptDoc.exists) {
+          tenPhongBan = deptDoc.data()?['tenPhongBan'] as String?;
+        }
+      }
+
+      // Create Firebase Auth account using secondary app to avoid auto-switching
+      String? userId;
+      try {
+        final secondaryApp = await Firebase.initializeApp(
+          name: 'SecondaryApp_${DateTime.now().millisecondsSinceEpoch}',
+          options: Firebase.app().options,
+        );
+        
+        final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+        
+        final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+        userId = userCredential.user?.uid;
+        
+        // Sign out from secondary app and delete it
+        await secondaryAuth.signOut();
+        await secondaryApp.delete();
+      } catch (authError) {
+        if (authError is FirebaseAuthException && authError.code == 'email-already-in-use') {
+          debugPrint('Email $email already exists, skipping auth creation');
+        } else {
+          debugPrint('Error creating auth account: $authError');
+        }
+      }
 
       // Create employee document
       final employeeData = {
         'maNhanVien': maNhanVien,
-        'userId': newUserId,
         'hoTen': hoTen,
         'email': email,
         'soDienThoai': soDienThoai,
         'gioiTinh': gioiTinh,
-        'phongBanId': phongBanId,
-        'chucVuId': chucVuId,
+        'phongBanId': phongBanId ?? '',
+        'tenPhongBan': tenPhongBan ?? '',
+        'chucVuId': chucVuId ?? '',
         'ngayVaoLam': FieldValue.serverTimestamp(),
         'status': 'DANG_LAM_VIEC',
         'createdAt': FieldValue.serverTimestamp(),
+        'userId': userId,
       };
 
       final docRef = await _employeesRef.add(employeeData);
 
-      // Get department name if department is assigned
-      String? tenPhongBan;
-      if (phongBanId != null && phongBanId.isNotEmpty) {
-        // Update department employee count
-        await _departmentsRef.doc(phongBanId).update({
-          'soNhanVien': FieldValue.increment(1),
+      // Create user record in 'users' collection if auth account was created
+      if (userId != null) {
+        await _firestore.collection('users').doc(userId).set({
+          'email': email,
+          'displayName': hoTen,
+          'role': 'employee',
+          'employeeId': docRef.id,
+          'createdAt': FieldValue.serverTimestamp(),
         });
-        
-        // Fetch department name
-        final deptDoc = await _departmentsRef.doc(phongBanId).get();
-        if (deptDoc.exists) {
-          tenPhongBan = deptDoc.data()?['tenPhongBan'] as String?;
-          
-          // Update employee document with tenPhongBan
-          await docRef.update({'tenPhongBan': tenPhongBan});
-        }
       }
 
-      // Sign back in as current user (HR Manager)
-      // Note: In production, use Admin SDK instead
-      if (currentUser != null) {
-        // We can't sign back in without password, so HR will need to re-login
-        // This is a limitation of client-side Firebase Auth
+      // Update department employee count if department is assigned
+      if (phongBanId != null && phongBanId.isNotEmpty) {
+        try {
+          await _departmentsRef.doc(phongBanId).update({
+            'soNhanVien': FieldValue.increment(1),
+          });
+        } catch (e) {
+          debugPrint('Error updating department count: $e');
+        }
       }
 
       return Employee(
         id: docRef.id,
         maNhanVien: maNhanVien,
-        userId: newUserId,
+        userId: userId,
         hoTen: hoTen,
         email: email,
         soDienThoai: soDienThoai,
@@ -483,57 +492,128 @@ class HRDataSourceImpl implements HRDataSource {
     final existingCount = (await _employeesRef.get()).docs.length;
     int codeCounter = existingCount;
 
+    // Default password for new accounts
+    const String defaultPassword = 'Employee@123';
+
     for (final data in employeesData) {
       try {
         codeCounter++;
         final maNhanVien = 'NV${codeCounter.toString().padLeft(4, '0')}';
 
-        // Use defaultDepartmentId if provided, otherwise try to get from CSV
-        final phongBanId = defaultDepartmentId ?? 
-            data['phongbanid'] ?? data['phong_ban'] ?? '';
+        // Get email and password from CSV
+        final email = (data['email'] ?? '').toString().trim();
+        final password = (data['matkhau'] ?? data['mat_khau'] ?? data['password'] ?? defaultPassword).toString();
+        
+        // Skip if no email
+        if (email.isEmpty) {
+          debugPrint('Skipping employee without email');
+          continue;
+        }
 
+        // Get department name from CSV and look up the actual department ID
+        final phongBanFromCSV = (data['phongban'] ?? data['phong_ban'] ?? data['phongbanid'] ?? '').toString().trim();
+        String? phongBanId = defaultDepartmentId;
+        String? tenPhongBan;
+        
+        // If department name is provided, look up the actual department ID
+        if (phongBanFromCSV.isNotEmpty && phongBanId == null) {
+          final deptQuery = await _departmentsRef
+              .where('tenPhongBan', isEqualTo: phongBanFromCSV)
+              .limit(1)
+              .get();
+          
+          if (deptQuery.docs.isNotEmpty) {
+            phongBanId = deptQuery.docs.first.id;
+            tenPhongBan = deptQuery.docs.first.data()['tenPhongBan'] as String?;
+          } else {
+            debugPrint('Department "$phongBanFromCSV" not found, skipping department assignment');
+          }
+        }
+
+        // Get gender
+        final gioiTinhRaw = (data['gioitinh'] ?? data['gioi_tinh'] ?? data['gender'] ?? 'Nam').toString().toLowerCase();
+        final gioiTinh = gioiTinhRaw.contains('nữ') || gioiTinhRaw.contains('nu') || gioiTinhRaw.contains('female') ? 'Nữ' : 'Nam';
+
+        // Create Firebase Auth account using secondary app to avoid auto-switching
+        String? userId;
+        try {
+          final secondaryApp = await Firebase.initializeApp(
+            name: 'SecondaryApp_${DateTime.now().millisecondsSinceEpoch}_${email.hashCode}',
+            options: Firebase.app().options,
+          );
+          
+          final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+          
+          final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+            email: email,
+            password: password.isEmpty ? defaultPassword : password,
+          );
+          userId = userCredential.user?.uid;
+          
+          // Sign out from secondary app and delete it
+          await secondaryAuth.signOut();
+          await secondaryApp.delete();
+        } catch (authError) {
+          if (authError is FirebaseAuthException && authError.code == 'email-already-in-use') {
+            debugPrint('Email $email already exists, skipping auth creation');
+          } else {
+            debugPrint('Error creating auth account: $authError');
+          }
+        }
+
+        // Create employee data
         final employeeData = {
           'maNhanVien': maNhanVien,
           'hoTen': data['hoten'] ?? data['ho_ten'] ?? data['name'] ?? '',
-          'email': data['email'] ?? '',
+          'email': email,
           'soDienThoai': data['sodienthoai'] ?? data['sdt'] ?? data['phone'] ?? '',
-          'gioiTinh': data['gioitinh'] ?? data['gioi_tinh'] ?? data['gender'] ?? 'Nam',
+          'gioiTinh': gioiTinh,
           'cccd': data['cccd'] ?? data['cmnd'] ?? '',
           'diaChi': data['diachi'] ?? data['dia_chi'] ?? data['address'] ?? '',
-          'phongBanId': phongBanId,
+          'phongBanId': phongBanId ?? '',
+          'tenPhongBan': tenPhongBan ?? '',
           'chucVuId': data['chucvuid'] ?? data['chuc_vu'] ?? '',
           'ngayVaoLam': FieldValue.serverTimestamp(),
           'status': 'DANG_LAM_VIEC',
           'createdAt': FieldValue.serverTimestamp(),
+          'userId': userId,
         };
 
         final docRef = await _employeesRef.add(employeeData);
 
-        // Get department name and update count if department is assigned
-        String? tenPhongBan;
-        if (phongBanId.isNotEmpty) {
-          await _departmentsRef.doc(phongBanId).update({
-            'soNhanVien': FieldValue.increment(1),
+        // Create user record in 'users' collection if auth account was created
+        if (userId != null) {
+          await _firestore.collection('users').doc(userId).set({
+            'email': email,
+            'displayName': employeeData['hoTen'],
+            'role': 'employee',
+            'employeeId': docRef.id,
+            'createdAt': FieldValue.serverTimestamp(),
           });
-          
-          // Fetch department name
-          final deptDoc = await _departmentsRef.doc(phongBanId).get();
-          if (deptDoc.exists) {
-            tenPhongBan = deptDoc.data()?['tenPhongBan'] as String?;
-            await docRef.update({'tenPhongBan': tenPhongBan});
+        }
+
+        // Update department employee count if department is assigned
+        if (phongBanId != null && phongBanId.isNotEmpty) {
+          try {
+            await _departmentsRef.doc(phongBanId).update({
+              'soNhanVien': FieldValue.increment(1),
+            });
+          } catch (e) {
+            debugPrint('Error updating department count: $e');
           }
         }
 
         importedEmployees.add(Employee(
           id: docRef.id,
           maNhanVien: maNhanVien,
+          userId: userId,
           hoTen: employeeData['hoTen'] as String,
           email: employeeData['email'] as String,
           soDienThoai: employeeData['soDienThoai'] as String?,
-          gioiTinh: employeeData['gioiTinh'] as String,
+          gioiTinh: gioiTinh,
           cccd: employeeData['cccd'] as String?,
           diaChi: employeeData['diaChi'] as String?,
-          phongBanId: phongBanId.isNotEmpty ? phongBanId : null,
+          phongBanId: phongBanId,
           tenPhongBan: tenPhongBan,
           ngayVaoLam: DateTime.now(),
           status: EmployeeStatus.working,

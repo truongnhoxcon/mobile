@@ -199,27 +199,38 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> {
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12.sp),
                       ),
                       const Spacer(),
-                      // Progress
-                      Row(
-                        children: [
-                          Text(
-                            '${project?.progress ?? 0}%',
-                            style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(width: 8.w),
-                          SizedBox(
-                            width: 60.w,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4.r),
-                              child: LinearProgressIndicator(
-                                value: (project?.progress ?? 0) / 100,
-                                backgroundColor: Colors.white.withValues(alpha: 0.3),
-                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                minHeight: 6.h,
+                      // Progress - calculated from issues
+                      BlocBuilder<IssueBloc, IssueState>(
+                        builder: (context, issueState) {
+                          final issues = issueState.issues;
+                          final totalTasks = issues.length;
+                          final doneTasks = issues.where((i) => i.status == IssueStatus.done).length;
+                          final progressPercent = totalTasks > 0 
+                              ? (doneTasks / totalTasks * 100).round() 
+                              : 0;
+                          
+                          return Row(
+                            children: [
+                              Text(
+                                '$progressPercent%',
+                                style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.bold),
                               ),
-                            ),
-                          ),
-                        ],
+                              SizedBox(width: 8.w),
+                              SizedBox(
+                                width: 60.w,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4.r),
+                                  child: LinearProgressIndicator(
+                                    value: totalTasks > 0 ? doneTasks / totalTasks : 0,
+                                    backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                    minHeight: 6.h,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

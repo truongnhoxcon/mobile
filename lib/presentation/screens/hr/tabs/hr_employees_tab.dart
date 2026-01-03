@@ -223,89 +223,55 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
         return;
       }
 
-      // Show confirmation dialog with department selection
-      final departments = this.context.read<HRBloc>().state.departments;
-      
-      // Return Map with confirm status and selected department ID
-      final dialogResult = await showDialog<Map<String, dynamic>>(
+      // Show confirmation dialog
+      final dialogResult = await showDialog<bool>(
         context: context,
         builder: (ctx) {
-          String? tempDepartmentId;
-          return StatefulBuilder(
-            builder: (context, setDialogState) => AlertDialog(
-              title: Row(
-                children: [
-                  Icon(Icons.upload_file, color: AppColors.success),
-                  SizedBox(width: 8.w),
-                  const Text('Import CSV'),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('File: ${file.name}'),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'Format file CSV cần có các cột:\n• hoTen hoặc name (bắt buộc)\n• email\n• soDienThoai hoặc phone\n• gioiTinh hoặc gender',
-                    style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
-                  ),
-                  SizedBox(height: 16.h),
-                  // Department Dropdown for imported employees
-                  DropdownButtonFormField<String>(
-                    value: tempDepartmentId,
-                    decoration: InputDecoration(
-                      labelText: 'Phòng ban cho nhân viên import',
-                      prefixIcon: const Icon(Icons.business),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    ),
-                    hint: const Text('Chọn phòng ban'),
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('-- Không chọn --'),
-                      ),
-                      ...departments.map((dept) => DropdownMenuItem<String>(
-                        value: dept.id,
-                        child: Text(dept.tenPhongBan),
-                      )),
-                    ],
-                    onChanged: (value) => setDialogState(() => tempDepartmentId = value),
-                  ),
-                  SizedBox(height: 16.h),
-                  const Text('Bạn có muốn import file này?'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, null),
-                  child: const Text('Hủy'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx, {
-                    'confirm': true,
-                    'departmentId': tempDepartmentId,
-                  }),
-                  icon: const Icon(Icons.upload),
-                  label: const Text('Import'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.upload_file, color: AppColors.success),
+                SizedBox(width: 8.w),
+                const Text('Import CSV'),
               ],
             ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('File: ${file.name}'),
+                SizedBox(height: 8.h),
+                Text(
+                  'Format file CSV cần có các cột:\n• hoTen (bắt buộc)\n• email (bắt buộc)\n• matKhau (mặc định: Employee@123)\n• soDienThoai\n• phongBan\n• gioiTinh',
+                  style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+                ),
+                SizedBox(height: 16.h),
+                const Text('Bạn có muốn import file này?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.upload),
+                label: const Text('Import'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           );
         },
       );
 
-      if (dialogResult != null && dialogResult['confirm'] == true) {
+      if (dialogResult == true) {
         // ignore: use_build_context_synchronously
         this.context.read<HRBloc>().add(HRImportEmployeesFromCSV(
           csvContent: csvContent,
-          defaultDepartmentId: dialogResult['departmentId'] as String?,
         ));
       }
     } catch (e) {

@@ -1,16 +1,9 @@
-hoTen,email,soDienThoai,gioiTinh
-Nguyễn Văn An,an.nguyen@company.com,0901234567,Nam
-Trần Thị Bình,binh.tran@company.com,0912345678,Nữ
-Lê Hoàng Cường,cuong.le@company.com,0923456789,Nam
-Phạm Thị Dung,dung.pham@company.com,0934567890,Nữ
-Hoàng Văn Em,em.hoang@company.com,0945678901,Nam
-Vũ Thị Phương,phuong.vu@company.com,0956789012,Nữ
-Đặng Minh Quang,quang.dang@company.com,0967890123,Nam
-Bùi Thị Hoa,hoa.bui@company.com,0978901234,Nữ
-Ngô Văn Sơn,son.ngo@company.com,0989012345,Nam
-Đỗ Thị Tuyết,tuyet.do@company.com,0990123456,Nữ
-Trịnh Văn Khoa,khoa.trinh@company.com,0911223344,Nam
-Đinh Thị Lan,lan.dinh@company.com,0922334455,Nữ
-Lý Minh Đức,duc.ly@company.com,0933445566,Nam
-Mai Thị Hương,huong.mai@company.com,0944556677,Nữ
-Châu Văn Phúc,phuc.chau@company.com,0955667788,Nam
+hoTen,email,matKhau,soDienThoai,phongBan,gioiTinh
+Nguyễn Văn Ân,an.nguyen@company.com,Employee@123,0901234567,Phòng Kỹ thuật,Nam
+Trần Thị Bình,binh.tran@company.com,Employee@123,0912345678,Phòng Nhân sự,Nữ
+Lê Hoàng Cường,cuong.le@company.com,Employee@123,0923456789,Phòng Marketing,Nam
+Phạm Thị Dung,dung.pham@company.com,Employee@123,0934567890,Phòng Kế toán,Nữ
+Hoàng Văn Em,em.hoang@company.com,Employee@123,0945678901,Phòng Kỹ thuật,Nam
+Vũ Thị Phương,phuong.vu@company.com,Employee@123,0956789012,Phòng Nhân sự,Nữ
+Đặng Minh Quang,quang.dang@company.com,Employee@123,0967890123,Phòng Marketing,Nam
+Bùi Thị Hoa,hoa.bui@company.com,Employee@123,0978901234,Phòng Kế toán,Nữ
