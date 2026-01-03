@@ -35,6 +35,8 @@ import '../../presentation/screens/employee/my_evaluations_screen.dart';
 import '../../presentation/screens/profile/change_password_screen.dart';
 import '../../presentation/screens/profile/team_screen.dart';
 import '../../presentation/screens/hr/department_detail_screen.dart';
+import '../../presentation/screens/home/admin_home_screen.dart';
+import '../../presentation/screens/admin/account_management_screen.dart';
 
 /// App Route Names
 class AppRoutes {
@@ -67,6 +69,8 @@ class AppRoutes {
   static const String changePassword = '/profile/change-password'; // Updated nesting
   static const String team = '/profile/team'; // Updated nesting
   static const String departmentDetail = '/hr/department/:id';
+  static const String admin = '/admin';
+  static const String adminAccounts = '/admin/accounts';
 }
 
 /// App Router
@@ -159,9 +163,13 @@ class AppRouter {
                         });
                         return const Scaffold(body: Center(child: CircularProgressIndicator()));
                       }
+                      final isAdmin = authState.user?.isAdmin ?? false;
                       final isHRManager = authState.user?.isHRManager ?? false;
                       final isProjectManager = authState.user?.isProjectManager ?? false;
                       
+                      if (isAdmin) {
+                        return const AdminHomeScreen();
+                      }
                       if (isHRManager) {
                         return const HRHomeScreen();
                       }
@@ -352,6 +360,19 @@ class AppRouter {
             child: DepartmentDetailScreen(departmentId: departmentId),
           );
         },
+      ),
+      // Admin Routes
+      GoRoute(
+        path: AppRoutes.admin,
+        name: 'admin',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AdminHomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminAccounts,
+        name: 'adminAccounts',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AccountManagementScreen(),
       ),
     ],
     

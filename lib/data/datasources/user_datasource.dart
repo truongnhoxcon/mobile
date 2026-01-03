@@ -10,8 +10,11 @@ abstract class UserDataSource {
   /// Get user by ID
   Future<UserModel> getUserById(String userId);
 
-  /// Get all users
+  /// Get all active users
   Future<List<UserModel>> getAllUsers();
+
+  /// Get all users including inactive (for admin)
+  Future<List<UserModel>> getAllUsersForAdmin();
 
   /// Get users by role
   Future<List<UserModel>> getUsersByRole(UserRole role);
@@ -24,6 +27,12 @@ abstract class UserDataSource {
 
   /// Update user role
   Future<void> updateUserRole(String userId, UserRole role);
+
+  /// Toggle user active status
+  Future<void> toggleUserActive(String userId, bool isActive);
+
+  /// Delete user (soft delete - set isActive to false)
+  Future<void> deleteUser(String userId);
 
   /// Search users
   Future<List<UserModel>> searchUsers(String query);
@@ -56,6 +65,12 @@ class UserDataSourceImpl implements UserDataSource {
   }
 
   @override
+  Future<List<UserModel>> getAllUsersForAdmin() async {
+    final snapshot = await _usersRef.orderBy('createdAt', descending: true).get();
+    return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+  }
+
+  @override
   Future<List<UserModel>> getUsersByRole(UserRole role) async {
     final snapshot = await _usersRef
         .where('role', isEqualTo: role.value)
@@ -80,6 +95,23 @@ class UserDataSourceImpl implements UserDataSource {
   Future<void> updateUserRole(String userId, UserRole role) async {
     await _usersRef.doc(userId).update({
       'role': role.value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> toggleUserActive(String userId, bool isActive) async {
+    await _usersRef.doc(userId).update({
+      'isActive': isActive,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> deleteUser(String userId) async {
+    // Soft delete - just mark as inactive
+    await _usersRef.doc(userId).update({
+      'isActive': false,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
