@@ -17,13 +17,14 @@ class MainLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
-        // Check if user is PM or HR - they have their own navigation in their home screens
+        // Check if user is PM, HR, or Admin - they have their own navigation in their home screens
+        final isAdmin = authState.user?.isAdmin == true;
         final isPMorHR = authState.user?.isProjectManager == true || 
                          authState.user?.isHRManager == true;
         final isAtHomeTab = navigationShell.currentIndex == 0;
         
-        // Hide MainLayout's bottom nav when PM/HR is at Home tab (they have their own nav)
-        final shouldHideBottomNav = isPMorHR && isAtHomeTab;
+        // Hide MainLayout's bottom nav when Admin/PM/HR is at Home tab (they have their own nav)
+        final shouldHideBottomNav = (isAdmin || isPMorHR) && isAtHomeTab;
 
         return Scaffold(
           body: navigationShell,

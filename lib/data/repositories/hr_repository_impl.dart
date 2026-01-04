@@ -197,6 +197,16 @@ class HRRepositoryImpl implements HRRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> deleteEmployee(String id) async {
+    try {
+      await _dataSource.deleteEmployee(id);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể xóa nhân viên: $e'));
+    }
+  }
+
   // ==================== CONTRACT METHODS ====================
 
   @override

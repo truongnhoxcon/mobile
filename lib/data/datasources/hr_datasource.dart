@@ -76,6 +76,9 @@ abstract class HRDataSource {
     String? defaultDepartmentId,
   });
 
+  /// Delete employee
+  Future<void> deleteEmployee(String id);
+
   // ==================== CONTRACT METHODS ====================
   
   /// Get all contracts
@@ -625,6 +628,40 @@ class HRDataSourceImpl implements HRDataSource {
     }
 
     return importedEmployees;
+  }
+
+  @override
+  Future<void> deleteEmployee(String id) async {
+    // Get employee data first
+    final doc = await _employeesRef.doc(id).get();
+    if (!doc.exists) return;
+
+    final data = doc.data();
+    final phongBanId = data?['phongBanId'] as String?;
+    final userId = data?['userId'] as String?;
+
+    // Delete employee document
+    await _employeesRef.doc(id).delete();
+
+    // Update department employee count
+    if (phongBanId != null && phongBanId.isNotEmpty) {
+      try {
+        await _departmentsRef.doc(phongBanId).update({
+          'soNhanVien': FieldValue.increment(-1),
+        });
+      } catch (e) {
+        debugPrint('Error updating department count: $e');
+      }
+    }
+
+    // Delete user record if exists
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        await _firestore.collection('users').doc(userId).delete();
+      } catch (e) {
+        debugPrint('Error deleting user record: $e');
+      }
+    }
   }
 
   // ==================== CONTRACT IMPLEMENTATIONS ====================

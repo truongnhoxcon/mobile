@@ -139,6 +139,16 @@ class HRAddEmployee extends HREvent {
   List<Object?> get props => [hoTen, email, password, soDienThoai, gioiTinh, phongBanId, chucVuId];
 }
 
+/// Delete Employee
+class HRDeleteEmployee extends HREvent {
+  final String employeeId;
+
+  const HRDeleteEmployee({required this.employeeId});
+
+  @override
+  List<Object?> get props => [employeeId];
+}
+
 /// Import employees from CSV file
 class HRImportEmployeesFromCSV extends HREvent {
   final String csvContent;

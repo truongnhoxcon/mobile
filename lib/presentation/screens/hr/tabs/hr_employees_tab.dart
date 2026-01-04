@@ -8,6 +8,7 @@ import 'dart:convert';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../domain/entities/employee.dart';
 import '../../../blocs/blocs.dart';
+import '../employee_detail_screen.dart';
 
 /// HR Employees Tab - Danh sách nhân viên
 class HREmployeesTab extends StatefulWidget {
@@ -36,170 +37,173 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Search and Filter Bar
-        Container(
-          padding: EdgeInsets.all(16.w),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.border)),
-          ),
-          child: Column(
-            children: [
-              // Search Box
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Tìm kiếm nhân viên...',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: AppColors.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide.none,
+    return BlocConsumer<HRBloc, HRState>(
+      listener: (context, state) {
+        if (state.status == HRStatus.actionSuccess && state.successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.successMessage!),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        return RefreshIndicator(
+          onRefresh: () async => _loadEmployees(),
+          child: CustomScrollView(
+            slivers: [
+              // Collapsible Search and Filter Header
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border(bottom: BorderSide(color: AppColors.border)),
                   ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                ),
-                onChanged: (value) => _loadEmployees(),
-              ),
-              SizedBox(height: 12.h),
-              
-              // Status Filter Chips + Action Buttons
-              Row(
-                children: [
-                  // Filters
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+                  child: Column(
+                    children: [
+                      // Search Box
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm nhân viên...',
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                        ),
+                        onChanged: (value) => _loadEmployees(),
+                      ),
+                      SizedBox(height: 12.h),
+                      
+                      // Status Filter Chips + Action Buttons
+                      Row(
                         children: [
-                          _buildFilterChip('Tất cả', 'ALL'),
+                          // Filters
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildFilterChip('Tất cả', 'ALL'),
+                                  SizedBox(width: 8.w),
+                                  _buildFilterChip('Đang làm', 'DANG_LAM_VIEC'),
+                                  SizedBox(width: 8.w),
+                                  _buildFilterChip('Tạm nghỉ', 'TAM_NGHI'),
+                                  SizedBox(width: 8.w),
+                                  _buildFilterChip('Nghỉ việc', 'NGHI_VIEC'),
+                                ],
+                              ),
+                            ),
+                          ),
                           SizedBox(width: 8.w),
-                          _buildFilterChip('Đang làm', 'DANG_LAM_VIEC'),
-                          SizedBox(width: 8.w),
-                          _buildFilterChip('Tạm nghỉ', 'TAM_NGHI'),
-                          SizedBox(width: 8.w),
-                          _buildFilterChip('Nghỉ việc', 'NGHI_VIEC'),
+                          // Import CSV Button
+                          Tooltip(
+                            message: 'Import từ CSV',
+                            child: IconButton(
+                              onPressed: () => _pickAndImportCSV(context),
+                              icon: Icon(Icons.upload_file, color: AppColors.success),
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.success.withValues(alpha: 0.1),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 4.w),
+                          // Add Employee Button
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddEmployeeDialog(context),
+                            icon: Icon(Icons.person_add, size: 18.w),
+                            label: const Text('Thêm'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
-                  SizedBox(width: 8.w),
-                  // Import CSV Button
-                  Tooltip(
-                    message: 'Import từ CSV',
-                    child: IconButton(
-                      onPressed: () => _pickAndImportCSV(context),
-                      icon: Icon(Icons.upload_file, color: AppColors.success),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.success.withValues(alpha: 0.1),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 4.w),
-                  // Add Employee Button
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddEmployeeDialog(context),
-                    icon: Icon(Icons.person_add, size: 18.w),
-                    label: const Text('Thêm'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    ),
-                  ),
-                ],
+                ),
               ),
+
+              // Employee List Content
+              if (state.status == HRStatus.loading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (state.status == HRStatus.error)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64.w, color: AppColors.error),
+                        SizedBox(height: 16.h),
+                        Text(state.errorMessage ?? 'Có lỗi xảy ra'),
+                        SizedBox(height: 16.h),
+                        ElevatedButton(
+                          onPressed: _loadEmployees,
+                          child: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (state.employees.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'Không có nhân viên',
+                          style: TextStyle(
+                            fontSize: 16.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddEmployeeDialog(context),
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Thêm nhân viên'),
+                        ),
+                        SizedBox(height: 8.h),
+                        TextButton.icon(
+                          onPressed: () => _pickAndImportCSV(context),
+                          icon: Icon(Icons.upload_file, color: AppColors.success),
+                          label: Text('Import từ CSV', style: TextStyle(color: AppColors.success)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.all(16.w),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildEmployeeCard(state.employees[index]),
+                      childCount: state.employees.length,
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
-
-        // Employee List
-        Expanded(
-          child: BlocConsumer<HRBloc, HRState>(
-            listener: (context, state) {
-              if (state.status == HRStatus.actionSuccess && state.successMessage != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.successMessage!),
-                    backgroundColor: AppColors.success,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            builder: (context, state) {
-              if (state.status == HRStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (state.status == HRStatus.error) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64.w, color: AppColors.error),
-                      SizedBox(height: 16.h),
-                      Text(state.errorMessage ?? 'Có lỗi xảy ra'),
-                      SizedBox(height: 16.h),
-                      ElevatedButton(
-                        onPressed: _loadEmployees,
-                        child: const Text('Thử lại'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final employees = state.employees;
-              if (employees.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 64.w, color: AppColors.textSecondary),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Không có nhân viên',
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: 16.h),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddEmployeeDialog(context),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Thêm nhân viên'),
-                      ),
-                      SizedBox(height: 8.h),
-                      TextButton.icon(
-                        onPressed: () => _pickAndImportCSV(context),
-                        icon: Icon(Icons.upload_file, color: AppColors.success),
-                        label: Text('Import từ CSV', style: TextStyle(color: AppColors.success)),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async => _loadEmployees(),
-                child: ListView.builder(
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: employees.length,
-                  itemBuilder: (context, index) {
-                    return _buildEmployeeCard(employees[index]);
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
+
 
   Future<void> _pickAndImportCSV(BuildContext context) async {
     try {
@@ -472,101 +476,118 @@ class _HREmployeesTabState extends State<HREmployeesTab> {
   }
 
   Widget _buildEmployeeCard(Employee employee) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          CircleAvatar(
-            radius: 28.r,
-            backgroundColor: _getAvatarColor(employee.hoTen),
-            backgroundImage: employee.avatarUrl != null
-                ? NetworkImage(employee.avatarUrl!)
-                : null,
-            child: employee.avatarUrl == null
-                ? Text(
-                    employee.hoTen.isNotEmpty ? employee.hoTen[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
+    return InkWell(
+      onTap: () {
+        final hrBloc = context.read<HRBloc>();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: hrBloc,
+              child: EmployeeDetailScreen(employee: employee),
+            ),
           ),
-          SizedBox(width: 16.w),
-          
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        employee.hoTen,
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+        );
+      },
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 28.r,
+              backgroundColor: _getAvatarColor(employee.hoTen),
+              backgroundImage: employee.avatarUrl != null
+                  ? NetworkImage(employee.avatarUrl!)
+                  : null,
+              child: employee.avatarUrl == null
+                  ? Text(
+                      employee.hoTen.isNotEmpty ? employee.hoTen[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(width: 16.w),
+            
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          employee.hoTen,
+                          style: TextStyle(
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
-                    ),
-                    _buildStatusBadge(employee.status),
-                  ],
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  employee.tenChucVu ?? 'Chưa có chức vụ',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: AppColors.textSecondary,
+                      _buildStatusBadge(employee.status),
+                    ],
                   ),
-                ),
-                SizedBox(height: 4.h),
-                Row(
-                  children: [
-                    Icon(Icons.business, size: 14.w, color: AppColors.textSecondary),
-                    SizedBox(width: 4.w),
-                    Expanded(
-                      child: Text(
-                        employee.tenPhongBan ?? 'Chưa phân phòng ban',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: AppColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    employee.tenChucVu ?? 'Chưa có chức vụ',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.textSecondary,
                     ),
-                  ],
-                ),
-                if (employee.ngayVaoLam != null) ...[
+                  ),
                   SizedBox(height: 4.h),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 14.w, color: AppColors.textSecondary),
+                      Icon(Icons.business, size: 14.w, color: AppColors.textSecondary),
                       SizedBox(width: 4.w),
-                      Text(
-                        'Vào làm: ${DateFormat('dd/MM/yyyy').format(employee.ngayVaoLam!)}',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: AppColors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          employee.tenPhongBan ?? 'Chưa phân phòng ban',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
+                  if (employee.ngayVaoLam != null) ...[
+                    SizedBox(height: 4.h),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 14.w, color: AppColors.textSecondary),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'Vào làm: ${DateFormat('dd/MM/yyyy').format(employee.ngayVaoLam!)}',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+            // Arrow indicator
+            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }

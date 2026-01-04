@@ -73,6 +73,9 @@ abstract class HRRepository {
     String? defaultDepartmentId,
   });
 
+  /// Delete employee
+  Future<Either<Failure, void>> deleteEmployee(String id);
+
   // ==================== CONTRACT METHODS ====================
 
   /// Get contracts

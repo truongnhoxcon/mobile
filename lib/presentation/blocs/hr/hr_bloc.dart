@@ -24,6 +24,7 @@ class HRBloc extends Bloc<HREvent, HRState> {
     on<HRDeleteDepartment>(_onDeleteDepartment);
     on<HRLoadPositions>(_onLoadPositions);
     on<HRAddEmployee>(_onAddEmployee);
+    on<HRDeleteEmployee>(_onDeleteEmployee);
     on<HRImportEmployeesFromCSV>(_onImportEmployeesFromCSV);
     // New handlers for Contracts, Salaries, Evaluations
     on<HRLoadContracts>(_onLoadContracts);
@@ -320,6 +321,33 @@ class HRBloc extends Bloc<HREvent, HRState> {
           status: HRStatus.actionSuccess,
           employees: updatedEmployees,
           successMessage: 'Tạo nhân viên thành công: ${employee.hoTen}',
+        ));
+      },
+    );
+  }
+
+  Future<void> _onDeleteEmployee(
+    HRDeleteEmployee event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.deleteEmployee(event.employeeId);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message,
+      )),
+      (_) {
+        // Remove employee from list
+        final updatedEmployees = state.employees
+            .where((e) => e.id != event.employeeId)
+            .toList();
+        emit(state.copyWith(
+          status: HRStatus.actionSuccess,
+          employees: updatedEmployees,
+          successMessage: 'Đã xóa nhân viên thành công',
         ));
       },
     );
