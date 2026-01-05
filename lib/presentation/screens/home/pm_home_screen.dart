@@ -13,7 +13,6 @@ import '../../../config/dependencies/injection_container.dart' as di;
 import '../../../domain/entities/user.dart';
 import '../../blocs/blocs.dart';
 import '../employee/employee_tasks_screen.dart';
-import '../pm/tabs/pm_approvals_tab.dart';
 import '../chat/chat_list_screen.dart';
 
 /// Project Manager Home Screen - Different layout from Employee
@@ -30,7 +29,7 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 0 || _currentIndex == 2 || _currentIndex == 3 ? null : _buildAppBar(),
+      appBar: _currentIndex == 0 || _currentIndex == 1 || _currentIndex == 2 ? null : _buildAppBar(),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(AppRoutes.aiChat),
@@ -48,12 +47,9 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
         title = 'Quản lý Dự án';
         break;
       case 1:
-        title = 'Duyệt đơn';
-        break;
-      case 2:
         title = 'Tin nhắn';
         break;
-      case 3:
+      case 2:
         title = 'Hồ sơ';
         break;
       default:
@@ -85,10 +81,8 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
       case 0:
         return const EmployeeTasksScreen();
       case 1:
-        return const PMApprovalsTab();
-      case 2:
         return const ChatListScreen();
-      case 3:
+      case 2:
         return const _PMProfileTab();
       default:
         return const EmployeeTasksScreen();
@@ -106,10 +100,6 @@ class _PMHomeScreenState extends State<PMHomeScreen> {
         BottomNavigationBarItem(
           icon: Icon(Icons.folder_open_rounded),
           label: 'Dự án',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.approval_rounded),
-          label: 'Duyệt đơn',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.chat_rounded),
