@@ -111,9 +111,9 @@ class _CheckInTab extends StatefulWidget {
 }
 
 class _CheckInTabState extends State<_CheckInTab> {
-  // Company Location Config - Khu A HUTECH (synced with AttendanceBloc)
-  static const double _companyLat = 10.8505;
-  static const double _companyLng = 106.7719;
+  // Company Location Config - Khu Phố 3, Biên Hòa, Đồng Nai (synced with AttendanceBloc)
+  static const double _companyLat = 10.9745;
+  static const double _companyLng = 106.8918;
   static const double _allowedRadius = 200.0; // meters - synced with AttendanceBloc
 
   Timer? _timer;

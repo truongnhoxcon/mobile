@@ -201,13 +201,25 @@ class HRDataSourceImpl implements HRDataSource {
   @override
   Future<List<Department>> getDepartments() async {
     final snapshot = await _departmentsRef.orderBy('tenPhongBan').get();
+    
+    // Get all employees to count per department
+    final employeesSnapshot = await _employeesRef.get();
+    final employeeCountByDeptId = <String, int>{};
+    
+    for (final doc in employeesSnapshot.docs) {
+      final phongBanId = doc.data()['phongBanId'] as String?;
+      if (phongBanId != null && phongBanId.isNotEmpty) {
+        employeeCountByDeptId[phongBanId] = (employeeCountByDeptId[phongBanId] ?? 0) + 1;
+      }
+    }
+    
     return snapshot.docs.map((doc) {
       final data = doc.data();
       return Department(
         id: doc.id,
         tenPhongBan: data['tenPhongBan'] ?? '',
         moTa: data['moTa'],
-        soNhanVien: data['soNhanVien'],
+        soNhanVien: employeeCountByDeptId[doc.id] ?? 0,
       );
     }).toList();
   }

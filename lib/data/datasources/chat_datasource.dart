@@ -13,6 +13,10 @@ abstract class ChatDataSource {
   Future<void> deleteChatRoom(String roomId);
   Stream<List<ChatRoomModel>> chatRoomsStream(String userId);
   
+  // Member management
+  Future<void> addMemberToRoom(String roomId, String userId, String userName);
+  Future<void> removeMemberFromRoom(String roomId, String userId);
+  
   Future<List<MessageModel>> getMessages(String roomId, {int limit = 50});
   Future<MessageModel> sendMessage(Message message);
   Future<String> uploadFile(String roomId, File file, String fileName);
@@ -86,6 +90,22 @@ class ChatDataSourceImpl implements ChatDataSource {
       await doc.reference.delete();
     }
     await _roomsRef.doc(roomId).delete();
+  }
+
+  @override
+  Future<void> addMemberToRoom(String roomId, String userId, String userName) async {
+    await _roomsRef.doc(roomId).update({
+      'memberIds': FieldValue.arrayUnion([userId]),
+      'memberNames.$userId': userName,
+    });
+  }
+
+  @override
+  Future<void> removeMemberFromRoom(String roomId, String userId) async {
+    await _roomsRef.doc(roomId).update({
+      'memberIds': FieldValue.arrayRemove([userId]),
+      'memberNames.$userId': FieldValue.delete(),
+    });
   }
 
   @override

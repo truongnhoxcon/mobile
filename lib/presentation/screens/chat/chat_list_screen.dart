@@ -242,7 +242,12 @@ class _ChatListContentState extends State<_ChatListContent> with SingleTickerPro
     return Material(
       color: Colors.white,
       child: InkWell(
-        onTap: () => context.push('/chat/${room.id}', extra: room),
+        onTap: () {
+          context.push('/chat/${room.id}', extra: room).then((_) {
+            // Reload rooms when returning from chat room (in case of deletion)
+            _loadRooms();
+          });
+        },
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
           child: Row(

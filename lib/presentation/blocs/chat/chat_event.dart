@@ -199,3 +199,47 @@ class ChatEditMessage extends ChatEvent {
   @override
   List<Object?> get props => [messageId, roomId, newContent];
 }
+
+// ============================================================================
+// Events for Room Management (PM only)
+// ============================================================================
+
+/// Add a member to chat room
+class ChatAddMember extends ChatEvent {
+  final String roomId;
+  final String userId;
+  final String userName;
+  
+  const ChatAddMember({
+    required this.roomId,
+    required this.userId,
+    required this.userName,
+  });
+  
+  @override
+  List<Object?> get props => [roomId, userId, userName];
+}
+
+/// Remove a member from chat room
+class ChatRemoveMember extends ChatEvent {
+  final String roomId;
+  final String userId;
+  
+  const ChatRemoveMember({
+    required this.roomId,
+    required this.userId,
+  });
+  
+  @override
+  List<Object?> get props => [roomId, userId];
+}
+
+/// Delete entire chat room
+class ChatDeleteRoom extends ChatEvent {
+  final String roomId;
+  
+  const ChatDeleteRoom(this.roomId);
+  
+  @override
+  List<Object?> get props => [roomId];
+}

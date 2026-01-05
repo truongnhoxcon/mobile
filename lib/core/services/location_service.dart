@@ -1,14 +1,14 @@
 /// Location Service for GPS Geofencing
 /// 
 /// Validates user location before allowing attendance check-in.
-/// Office: Khu A HUTECH University
+/// Office: Khu Phố 3, Biên Hòa, Đồng Nai
 
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
-  // Office coordinates - Khu A HUTECH University, HCM City
-  static const double officeLatitude = 10.8505;
-  static const double officeLongitude = 106.7719;
+  // Office coordinates - Khu Phố 3, Biên Hòa, Đồng Nai
+  static const double officeLatitude = 10.9745;
+  static const double officeLongitude = 106.8918;
   static const double geofenceRadius = 200.0; // meters
 
   /// Check if location services are enabled and permissions granted

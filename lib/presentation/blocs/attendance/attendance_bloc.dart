@@ -8,9 +8,9 @@ import 'attendance_state.dart';
 class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   final AttendanceDataSource _dataSource;
   
-  // Geofence config - Khu A HUTECH University
-  static const double _officeLatitude = 10.8505;
-  static const double _officeLongitude = 106.7719;
+  // Geofence config - Khu Phố 3, Biên Hòa, Đồng Nai
+  static const double _officeLatitude = 10.9745;
+  static const double _officeLongitude = 106.8918;
   static const double _geofenceRadius = 200.0; // meters
 
   AttendanceBloc({required AttendanceDataSource dataSource})

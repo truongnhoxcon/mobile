@@ -18,14 +18,24 @@ import '../../widgets/common/pastel_background.dart';
 class ChatRoomScreen extends StatelessWidget {
   final String roomId;
   final ChatRoom? room;
+  final String? projectOwnerId; // PM của project (nếu là project chat)
 
-  const ChatRoomScreen({super.key, required this.roomId, this.room});
+  const ChatRoomScreen({
+    super.key, 
+    required this.roomId, 
+    this.room,
+    this.projectOwnerId,
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => di.sl<ChatBloc>()..add(ChatSubscribeMessages(roomId)),
-      child: _ChatRoomContent(roomId: roomId, room: room),
+      child: _ChatRoomContent(
+        roomId: roomId, 
+        room: room,
+        projectOwnerId: projectOwnerId,
+      ),
     );
   }
 }
@@ -33,8 +43,13 @@ class ChatRoomScreen extends StatelessWidget {
 class _ChatRoomContent extends StatefulWidget {
   final String roomId;
   final ChatRoom? room;
+  final String? projectOwnerId;
 
-  const _ChatRoomContent({required this.roomId, this.room});
+  const _ChatRoomContent({
+    required this.roomId, 
+    this.room,
+    this.projectOwnerId,
+  });
 
   @override
   State<_ChatRoomContent> createState() => _ChatRoomContentState();
@@ -65,6 +80,217 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
   void _cancelReply() {
     setState(() => _replyingTo = null);
   }
+
+  // ============================================================================
+  // Room Management Methods (PM only)
+  // ============================================================================
+
+  /// Check if current user can manage the room (is project owner/PM)
+  bool _canManageRoom(String? currentUserId) {
+    if (currentUserId == null) return false;
+    
+    // For project chat rooms
+    if (widget.room?.isProject == true) {
+      // If projectOwnerId is provided, use it
+      if (widget.projectOwnerId != null) {
+        return currentUserId == widget.projectOwnerId;
+      }
+      // Otherwise, check if user is the room creator (who is the PM)
+      return widget.room?.createdBy == currentUserId;
+    }
+    
+    // For group rooms, check if user created it
+    if (widget.room?.isGroup == true) {
+      return widget.room?.createdBy == currentUserId;
+    }
+    
+    return false;
+  }
+
+  void _handleRoomAction(String action, BuildContext context) {
+    switch (action) {
+      case 'members':
+        _showMembersDialog(context);
+        break;
+      case 'add_member':
+        _showAddMemberDialog(context);
+        break;
+      case 'delete_room':
+        _showDeleteRoomConfirmation(context);
+        break;
+    }
+  }
+
+  void _showMembersDialog(BuildContext context) {
+    final room = widget.room;
+    if (room == null) return;
+    final currentUserId = context.read<AuthBloc>().state.user?.id;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        expand: false,
+        builder: (_, scrollController) => Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Row(
+                children: [
+                  Icon(Icons.people, color: AppColors.primary),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Thành viên (${room.memberIds.length})',
+                    style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                itemCount: room.memberIds.length,
+                itemBuilder: (context, index) {
+                  final memberId = room.memberIds[index];
+                  final memberName = room.memberNames[memberId] ?? 'Unknown';
+                  final isOwner = memberId == widget.projectOwnerId;
+                  final isCurrentUser = memberId == currentUserId;
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      child: Text(
+                        memberName[0].toUpperCase(),
+                        style: TextStyle(color: AppColors.primary),
+                      ),
+                    ),
+                    title: Text(memberName),
+                    subtitle: isOwner ? Text('Project Manager', style: TextStyle(color: AppColors.primary)) : null,
+                    trailing: (!isOwner && !isCurrentUser && _canManageRoom(currentUserId))
+                        ? IconButton(
+                            icon: Icon(Icons.remove_circle, color: AppColors.error),
+                            onPressed: () => _confirmRemoveMember(ctx, memberId, memberName),
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmRemoveMember(BuildContext context, String userId, String userName) {
+    final chatBloc = this.context.read<ChatBloc>();
+    final scaffoldMessenger = ScaffoldMessenger.of(this.context);
+    final outerNavigator = Navigator.of(context); // For closing member sheet
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc muốn xóa $userName khỏi phòng chat?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Close dialog
+              outerNavigator.pop(); // Close member sheet
+              chatBloc.add(ChatRemoveMember(
+                roomId: widget.roomId,
+                userId: userId,
+              ));
+              scaffoldMessenger.showSnackBar(
+                SnackBar(content: Text('Đã xóa $userName khỏi phòng chat')),
+              );
+            },
+            child: Text('Xóa', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMemberDialog(BuildContext context) {
+    // For now, show a simple dialog - in full implementation, 
+    // this would load project members who are not yet in the chat
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.person_add, color: AppColors.primary),
+            SizedBox(width: 8.w),
+            const Text('Thêm thành viên'),
+          ],
+        ),
+        content: Text(
+          'Tính năng này sẽ cho phép thêm thành viên từ danh sách thành viên dự án.\n\n'
+          'Hiện tại, thành viên sẽ tự động được thêm khi họ được thêm vào dự án.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteRoomConfirmation(BuildContext context) {
+    final chatBloc = context.read<ChatBloc>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: AppColors.error),
+            SizedBox(width: 8.w),
+            const Text('Xóa phòng chat'),
+          ],
+        ),
+        content: const Text(
+          'Bạn có chắc muốn xóa phòng chat này?\n\n'
+          'Tất cả tin nhắn sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              chatBloc.add(ChatDeleteRoom(widget.roomId));
+              navigator.pop(); // Go back to chat list
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Đã xóa phòng chat')),
+              );
+            },
+            child: Text('Xóa', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +333,7 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
                         final typingText = widget.room!.getTypingText(currentUser.id);
                         if (typingText.isEmpty) {
                            // Show "Online" or member count if not typing
-                           if (widget.room!.isGroup) {
+                           if (widget.room!.isGroup || widget.room!.isProject) {
                              return Text(
                                '${widget.room!.memberIds.length} thành viên',
                                style: TextStyle(fontSize: 11.sp, color: Colors.white70),
@@ -135,8 +361,39 @@ class _ChatRoomContentState extends State<_ChatRoomContent> {
           ),
         ),
         actions: [
-          // Placeholder for Chat Info (Members, Mute, Files) - Not implemented yet
-          // IconButton(icon: const Icon(Icons.info_outline), onPressed: () {}),
+          // Room management menu for PM only (project chat rooms)
+          if (_canManageRoom(currentUser?.id))
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) => _handleRoomAction(value, context),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'members',
+                  child: ListTile(
+                    leading: Icon(Icons.people),
+                    title: Text('Xem thành viên'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'add_member',
+                  child: ListTile(
+                    leading: Icon(Icons.person_add),
+                    title: Text('Thêm thành viên'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'delete_room',
+                  child: ListTile(
+                    leading: Icon(Icons.delete, color: AppColors.error),
+                    title: Text('Xóa phòng chat', style: TextStyle(color: AppColors.error)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: GestureDetector(

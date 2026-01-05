@@ -25,6 +25,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatMarkAsRead>(_onMarkAsRead);
     on<ChatRoomsUpdated>(_onRoomsUpdated);
     on<ChatMessagesUpdated>(_onMessagesUpdated);
+    // Room management (PM only)
+    on<ChatAddMember>(_onAddMember);
+    on<ChatRemoveMember>(_onRemoveMember);
+    on<ChatDeleteRoom>(_onDeleteRoom);
   }
 
   @override
@@ -168,5 +172,40 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       await _dataSource.markAsRead(event.roomId, event.userId);
     } catch (_) {}
+  }
+
+  // ============================================================================
+  // Room Management Handlers (PM only)
+  // ============================================================================
+
+  Future<void> _onAddMember(ChatAddMember event, Emitter<ChatState> emit) async {
+    try {
+      await _dataSource.addMemberToRoom(event.roomId, event.userId, event.userName);
+      emit(state.copyWith(status: ChatBlocStatus.loaded));
+    } catch (e) {
+      emit(state.copyWith(status: ChatBlocStatus.error, errorMessage: 'Không thể thêm thành viên: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRemoveMember(ChatRemoveMember event, Emitter<ChatState> emit) async {
+    try {
+      await _dataSource.removeMemberFromRoom(event.roomId, event.userId);
+      emit(state.copyWith(status: ChatBlocStatus.loaded));
+    } catch (e) {
+      emit(state.copyWith(status: ChatBlocStatus.error, errorMessage: 'Không thể xóa thành viên: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onDeleteRoom(ChatDeleteRoom event, Emitter<ChatState> emit) async {
+    emit(state.copyWith(status: ChatBlocStatus.loading));
+    try {
+      await _dataSource.deleteChatRoom(event.roomId);
+      emit(state.copyWith(
+        status: ChatBlocStatus.loaded,
+        roomDeleted: true,
+      ));
+    } catch (e) {
+      emit(state.copyWith(status: ChatBlocStatus.error, errorMessage: 'Không thể xóa phòng chat: ${e.toString()}'));
+    }
   }
 }

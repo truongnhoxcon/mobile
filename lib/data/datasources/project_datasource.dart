@@ -60,11 +60,14 @@ class ProjectDataSourceImpl implements ProjectDataSource {
 
   @override
   Future<ProjectModel> createProject(Project project) async {
+    print('createProject: Creating project ${project.name}');
     final model = ProjectModel.fromEntity(project);
     final docRef = await _projectsRef.add(model.toFirestore());
+    print('createProject: Project created with id=${docRef.id}');
     
     // Auto-create Project Chat Room
     try {
+      print('createProject: Creating chat room for project ${docRef.id}');
       final chatRoomData = {
         'name': project.name,
         'type': 'PROJECT',
@@ -78,7 +81,8 @@ class ProjectDataSourceImpl implements ProjectDataSource {
         'unreadCounts': {},
         'mutedBy': [],
       };
-      await _firestore.collection('chats').add(chatRoomData);
+      final chatDoc = await _firestore.collection('chatRooms').add(chatRoomData);
+      print('createProject: Chat room created with id=${chatDoc.id}');
     } catch (e) {
       print('Error creating project chat room: $e');
       // Non-blocking error
@@ -103,10 +107,37 @@ class ProjectDataSourceImpl implements ProjectDataSource {
 
   @override
   Future<void> addMember(String projectId, String userId) async {
+    print('ProjectDataSource.addMember: projectId=$projectId, userId=$userId');
+    
     await _projectsRef.doc(projectId).update({
       'memberIds': FieldValue.arrayUnion([userId]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    
+    // Sync with project chat room
+    try {
+      print('Searching for chat room with projectId=$projectId');
+      final chatSnapshot = await _firestore.collection('chatRooms')
+          .where('projectId', isEqualTo: projectId)
+          .limit(1)
+          .get();
+      
+      print('Found ${chatSnapshot.docs.length} chat rooms');
+      
+      if (chatSnapshot.docs.isNotEmpty) {
+        final chatDoc = chatSnapshot.docs.first;
+        print('Updating chat room: ${chatDoc.id}');
+        await chatDoc.reference.update({
+          'memberIds': FieldValue.arrayUnion([userId]),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('Chat room member sync completed');
+      } else {
+        print('No chat room found for projectId=$projectId');
+      }
+    } catch (e) {
+      print('Error syncing chat room member: $e');
+    }
   }
 
   @override
@@ -115,6 +146,23 @@ class ProjectDataSourceImpl implements ProjectDataSource {
       'memberIds': FieldValue.arrayRemove([userId]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    
+    // Sync with project chat room
+    try {
+      final chatSnapshot = await _firestore.collection('chatRooms')
+          .where('projectId', isEqualTo: projectId)
+          .limit(1)
+          .get();
+      if (chatSnapshot.docs.isNotEmpty) {
+        await chatSnapshot.docs.first.reference.update({
+          'memberIds': FieldValue.arrayRemove([userId]),
+          'memberNames.$userId': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      print('Error syncing chat room member removal: $e');
+    }
   }
 
   @override

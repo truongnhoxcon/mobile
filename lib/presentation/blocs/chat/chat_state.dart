@@ -10,6 +10,7 @@ class ChatState extends Equatable {
   final List<Message> messages;
   final String? selectedRoomId;
   final String? errorMessage;
+  final bool roomDeleted;
 
   const ChatState({
     this.status = ChatBlocStatus.initial,
@@ -17,6 +18,7 @@ class ChatState extends Equatable {
     this.messages = const [],
     this.selectedRoomId,
     this.errorMessage,
+    this.roomDeleted = false,
   });
 
   ChatRoom? get selectedRoom => 
@@ -31,6 +33,7 @@ class ChatState extends Equatable {
     String? selectedRoomId,
     String? errorMessage,
     bool clearSelectedRoom = false,
+    bool? roomDeleted,
   }) {
     return ChatState(
       status: status ?? this.status,
@@ -38,9 +41,10 @@ class ChatState extends Equatable {
       messages: messages ?? this.messages,
       selectedRoomId: clearSelectedRoom ? null : (selectedRoomId ?? this.selectedRoomId),
       errorMessage: errorMessage ?? this.errorMessage,
+      roomDeleted: roomDeleted ?? false, // Reset to false after being handled
     );
   }
 
   @override
-  List<Object?> get props => [status, rooms, messages, selectedRoomId, errorMessage];
+  List<Object?> get props => [status, rooms, messages, selectedRoomId, errorMessage, roomDeleted];
 }

@@ -13,8 +13,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../config/routes/app_router.dart';
 import '../../../domain/entities/project.dart';
 import '../../../domain/entities/issue.dart';
+import '../../../domain/entities/chat_room.dart';
 import '../../../data/datasources/project_datasource.dart';
 import '../../../data/datasources/issue_datasource.dart';
+import '../../../data/datasources/chat_datasource.dart';
 import '../../blocs/blocs.dart';
 
 import '../files/files_screen.dart';
@@ -31,10 +33,13 @@ class EmployeeTasksScreen extends StatefulWidget {
 class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _projectSearchController = TextEditingController();
   
   // Projects state
   List<Project> _projects = [];
+  List<Project> _filteredProjects = [];
   bool _loadingProjects = true;
+  ProjectStatus? _selectedProjectStatus;
   
   // My Tasks state
   List<Issue> _myTasks = [];
@@ -67,6 +72,7 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
       if (mounted) {
         setState(() {
           _projects = projectModels.map((m) => m.toEntity()).toList();
+          _filteredProjects = _projects; // Initialize filtered list
           _loadingProjects = false;
         });
       }
@@ -140,6 +146,9 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final isPM = authState.user?.isProjectManager == true;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -188,6 +197,75 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showCreateProjectDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.user?.id ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, MediaQuery.of(ctx).viewInsets.bottom + 20.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Tạo dự án mới', style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold)),
+            SizedBox(height: 20.h),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Tên dự án *',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+              ),
+            ),
+            SizedBox(height: 12.h),
+            TextField(
+              controller: descController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Mô tả',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+              ),
+            ),
+            SizedBox(height: 20.h),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) return;
+                  final projectName = nameController.text.trim();
+                  final project = Project(
+                    id: '',
+                    name: projectName,
+                    description: descController.text.trim(),
+                    ownerId: userId,
+                    memberIds: [userId],
+                    createdAt: DateTime.now(),
+                  );
+                  // Create project (chat room is auto-created in ProjectDataSourceImpl.createProject)
+                  final projectDatasource = ProjectDataSourceImpl();
+                  await projectDatasource.createProject(project);
+                  
+                  Navigator.pop(ctx);
+                  // Reload projects
+                  _loadProjects();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã tạo dự án và phòng chat mới')),
+                  );
+                },
+                child: const Text('Tạo dự án'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -416,30 +494,126 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
   }
 
   Widget _buildProjectsTab() {
+    final authState = context.read<AuthBloc>().state;
+    final isPM = authState.user?.isProjectManager == true;
+    
+    // Use filtered projects if searching/filtering, otherwise use all projects
+    final displayProjects = (_projectSearchController.text.isNotEmpty || _selectedProjectStatus != null)
+        ? _filteredProjects
+        : _projects;
+    
     return RefreshIndicator(
       onRefresh: _loadProjects,
       child: _loadingProjects
           ? const Center(child: CircularProgressIndicator())
-          : _projects.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.folder_off, size: 64.w, color: AppColors.textSecondary),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Bạn chưa tham gia dự án nào',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
+          : ListView(
+              padding: EdgeInsets.all(16.w),
+              children: [
+                // Search, Filter and Create button row
+                Row(
+                  children: [
+                    // Search field
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _projectSearchController,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm dự án...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+                          filled: true,
+                          fillColor: AppColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.r),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: (value) => _filterProjects(),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    // Status filter dropdown
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ProjectStatus?>(
+                          value: _selectedProjectStatus,
+                          hint: Text('Lọc', style: TextStyle(fontSize: 12.sp)),
+                          icon: Icon(Icons.filter_list, size: 18.w),
+                          items: [
+                            DropdownMenuItem<ProjectStatus?>(
+                              value: null,
+                              child: Text('Tất cả', style: TextStyle(fontSize: 12.sp)),
+                            ),
+                            ...ProjectStatus.values.map((s) => DropdownMenuItem<ProjectStatus?>(
+                              value: s,
+                              child: Text(s.displayName, style: TextStyle(fontSize: 11.sp)),
+                            )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedProjectStatus = value;
+                              _filterProjects();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    // Create button for PM
+                    if (isPM) ...[
+                      SizedBox(width: 8.w),
+                      IconButton(
+                        onPressed: () => _showCreateProjectDialog(context),
+                        icon: Icon(Icons.add_circle, color: AppColors.primary, size: 32.w),
+                        tooltip: 'Tạo dự án mới',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: _projects.length,
-                  itemBuilder: (context, index) => _buildProjectItem(_projects[index]),
+                  ],
                 ),
+                SizedBox(height: 16.h),
+                // Projects list
+                if (displayProjects.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 40.h),
+                      child: Column(
+                        children: [
+                          Icon(Icons.folder_open, size: 64.w, color: AppColors.textSecondary),
+                          SizedBox(height: 16.h),
+                          Text(
+                            _projects.isEmpty ? 'Chưa có dự án nào' : 'Không tìm thấy dự án',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...displayProjects.map((project) => _buildProjectItem(project)),
+              ],
+            ),
     );
+  }
+
+  void _filterProjects() {
+    final query = _projectSearchController.text.toLowerCase();
+    setState(() {
+      _filteredProjects = _projects.where((project) {
+        final matchesSearch = query.isEmpty || 
+            project.name.toLowerCase().contains(query) ||
+            (project.description?.toLowerCase().contains(query) ?? false);
+        final matchesStatus = _selectedProjectStatus == null || 
+            project.status == _selectedProjectStatus;
+        return matchesSearch && matchesStatus;
+      }).toList();
+    });
   }
 
   Widget _buildProjectItem(Project project) {
@@ -469,7 +643,12 @@ class _EmployeeTasksScreenState extends State<EmployeeTasksScreen> with SingleTi
     }
 
     return InkWell(
-      onTap: () => context.push('/projects/${project.id}'),
+      onTap: () {
+        context.push('/projects/${project.id}').then((_) {
+          // Reload projects when returning (in case of deletion/update)
+          _loadProjects();
+        });
+      },
       borderRadius: BorderRadius.circular(12.r),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),

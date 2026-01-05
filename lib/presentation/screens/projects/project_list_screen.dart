@@ -112,11 +112,14 @@ class _ProjectListContentState extends State<_ProjectListContent> {
         },
       ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateProjectDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Tạo dự án'),
-      ),
+      // Only show create button for Project Managers
+      floatingActionButton: context.read<AuthBloc>().state.user?.isProjectManager == true
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCreateProjectDialog(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Tạo dự án'),
+            )
+          : null,
     );
   }
 
@@ -150,7 +153,12 @@ class _ProjectListContentState extends State<_ProjectListContent> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16.r),
-          onTap: () => context.push('/projects/${project.id}'),
+          onTap: () {
+            context.push('/projects/${project.id}').then((_) {
+              // Reload projects when returning (in case of deletion)
+              context.read<ProjectBloc>().add(ProjectLoadByUser(widget.userId));
+            });
+          },
           child: Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
