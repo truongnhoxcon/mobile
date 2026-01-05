@@ -156,6 +156,31 @@ class _HRSalaryTabState extends State<HRSalaryTab> {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              if (state.status == HRStatus.error) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64.w, color: AppColors.error),
+                      SizedBox(height: 16.h),
+                      Text(
+                        state.errorMessage ?? 'Có lỗi xảy ra',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      ElevatedButton(
+                        onPressed: _loadSalaries,
+                        child: const Text('Thử lại'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
               final salaries = state.salaries;
               if (salaries.isEmpty) {
                 return Center(

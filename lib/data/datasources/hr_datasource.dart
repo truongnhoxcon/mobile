@@ -796,11 +796,13 @@ class HRDataSourceImpl implements HRDataSource {
     final targetYear = year ?? DateTime.now().year;
     
     final snapshot = await _salariesRef
-        .where('month', isEqualTo: targetMonth)
         .where('year', isEqualTo: targetYear)
         .get();
     
-    return snapshot.docs.map((doc) => _salaryFromFirestore(doc)).toList();
+    final allSalaries = snapshot.docs.map((doc) => _salaryFromFirestore(doc)).toList();
+    
+    // Filter by month locally
+    return allSalaries.where((s) => s.month == targetMonth).toList();
   }
 
   Salary _salaryFromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
