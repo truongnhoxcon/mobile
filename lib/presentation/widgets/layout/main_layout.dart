@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../config/dependencies/injection_container.dart' as di;
 import '../../blocs/blocs.dart';
 
 class MainLayout extends StatelessWidget {
@@ -26,37 +27,43 @@ class MainLayout extends StatelessWidget {
         // Hide MainLayout's bottom nav when Admin/PM/HR is at Home tab (they have their own nav)
         final shouldHideBottomNav = (isAdmin || isPMorHR) && isAtHomeTab;
 
-        return Scaffold(
-          body: navigationShell,
-          bottomNavigationBar: shouldHideBottomNav 
-            ? null 
-            : Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(child: _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ')),
-                        Expanded(child: _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc')),
-                        Expanded(child: _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat')),
-                        Expanded(child: _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công')),
-                        Expanded(child: _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Cá nhân')),
-                      ],
+        // Provide shared AttendanceBloc for all tabs
+        final userId = authState.user?.id ?? '';
+        
+        return BlocProvider<AttendanceBloc>(
+          create: (_) => di.sl<AttendanceBloc>()..add(AttendanceLoadToday(userId)),
+          child: Scaffold(
+            body: navigationShell,
+            bottomNavigationBar: shouldHideBottomNav 
+              ? null 
+              : Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Expanded(child: _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Trang chủ')),
+                          Expanded(child: _buildNavItem(1, Icons.work_history_rounded, Icons.work_history_outlined, 'Công việc')),
+                          Expanded(child: _buildNavItem(2, Icons.chat_bubble_rounded, Icons.chat_bubble_outline_rounded, 'Chat')),
+                          Expanded(child: _buildNavItem(3, Icons.fingerprint_rounded, Icons.fingerprint_outlined, 'Chấm công')),
+                          Expanded(child: _buildNavItem(4, Icons.person_rounded, Icons.person_outline_rounded, 'Cá nhân')),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+          ),
         );
       },
     );

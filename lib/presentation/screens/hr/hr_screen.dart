@@ -30,13 +30,8 @@ class HRScreen extends StatelessWidget {
     }
     
     // Regular employee gets attendance screen
-    return BlocProvider(
-      create: (_) {
-        final userId = user?.id ?? '';
-        return di.sl<AttendanceBloc>()..add(AttendanceLoadToday(userId));
-      },
-      child: const _HRScreenContent(),
-    );
+    // AttendanceBloc is now provided by MainLayout
+    return const _HRScreenContent();
   }
 }
 

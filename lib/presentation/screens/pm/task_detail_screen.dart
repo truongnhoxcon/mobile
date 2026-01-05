@@ -108,8 +108,102 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _deleteTask() async {
+    if (_task == null) return;
+    
+    try {
+      final datasource = IssueDataSourceImpl();
+      await datasource.deleteIssue(_task!.id);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Đã xóa công việc'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context, true); // Return true to trigger refresh
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeleteConfirmation() {
+    if (_task == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28.w),
+            SizedBox(width: 10.w),
+            const Text('Xóa công việc'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Bạn có chắc chắn muốn xóa công việc "${_task!.title}"?'),
+            SizedBox(height: 12.h),
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red, size: 18.w),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'Hành động này không thể hoàn tác.',
+                      style: TextStyle(fontSize: 12.sp, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteTask();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final currentUser = authState.user;
+    final isPM = currentUser?.isProjectManager == true || currentUser?.isAdmin == true;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -118,12 +212,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         actions: [
           if (_task != null)
-            PopupMenuButton<IssueStatus>(
+            PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
-              onSelected: _updateStatus,
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _showDeleteConfirmation();
+                } else {
+                  // Handle status change
+                  final status = IssueStatus.values.firstWhere(
+                    (s) => s.name == value,
+                    orElse: () => IssueStatus.todo,
+                  );
+                  _updateStatus(status);
+                }
+              },
               itemBuilder: (context) => [
                 PopupMenuItem(
-                  value: IssueStatus.todo,
+                  value: IssueStatus.todo.name,
                   child: Row(
                     children: [
                       Icon(Icons.radio_button_unchecked, color: AppColors.warning, size: 20.w),
@@ -133,7 +238,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ),
                 PopupMenuItem(
-                  value: IssueStatus.inProgress,
+                  value: IssueStatus.inProgress.name,
                   child: Row(
                     children: [
                       Icon(Icons.timelapse, color: AppColors.primary, size: 20.w),
@@ -143,7 +248,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ),
                 PopupMenuItem(
-                  value: IssueStatus.done,
+                  value: IssueStatus.done.name,
                   child: Row(
                     children: [
                       Icon(Icons.check_circle, color: AppColors.success, size: 20.w),
@@ -152,6 +257,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ],
                   ),
                 ),
+                if (isPM) ...[
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red, size: 20.w),
+                        SizedBox(width: 8.w),
+                        const Text('Xóa công việc', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
         ],

@@ -177,13 +177,8 @@ class AppRouter {
                         return const PMHomeScreen();
                       }
 
-                      return BlocProvider(
-                        create: (_) {
-                          final userId = authState.user?.id ?? '';
-                          return sl<AttendanceBloc>()..add(AttendanceLoadToday(userId));
-                        },
-                        child: const HomeScreen(),
-                      );
+                      // AttendanceBloc is now provided by MainLayout
+                      return const HomeScreen();
                     },
                   );
                 },
