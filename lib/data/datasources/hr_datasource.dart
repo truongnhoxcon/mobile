@@ -12,6 +12,7 @@ import '../../domain/entities/leave_request.dart';
 import '../../domain/entities/contract.dart';
 import '../../domain/entities/salary.dart';
 import '../../domain/entities/evaluation.dart';
+import '../../domain/services/salary_calculator.dart';
 
 abstract class HRDataSource {
   /// Get all employees
@@ -59,6 +60,9 @@ abstract class HRDataSource {
   /// Get all leave requests
   Future<List<LeaveRequest>> getAllLeaveRequests();
 
+  /// Submit a new leave request
+  Future<LeaveRequest> submitLeaveRequest(LeaveRequest request);
+
   /// Add new employee (create user + employee record)
   Future<Employee> addEmployee({
     required String hoTen,
@@ -88,6 +92,12 @@ abstract class HRDataSource {
   
   /// Get salaries by period
   Future<List<Salary>> getSalaries({int? month, int? year});
+
+  /// Generate monthly salaries for all employees
+  Future<List<Salary>> generateMonthlySalaries({
+    required int month,
+    required int year,
+  });
 
   // ==================== EVALUATION METHODS ====================
   
@@ -291,18 +301,39 @@ class HRDataSourceImpl implements HRDataSource {
 
   @override
   Future<List<LeaveRequest>> getPendingLeaveRequests() async {
-    final snapshot = await _leaveRequestsRef
-        .where('status', isEqualTo: 'PENDING')
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs.map((doc) => _leaveRequestFromFirestore(doc)).toList();
+    debugPrint('=== GET PENDING LEAVE REQUESTS ===');
+    try {
+      // Get all leave requests and filter locally to avoid Firestore composite index requirement
+      final snapshot = await _leaveRequestsRef.get();
+      debugPrint('Total docs in leave_requests: ${snapshot.docs.length}');
+      
+      final allRequests = snapshot.docs.map((doc) {
+        debugPrint('Doc ${doc.id}: status=${doc.data()['status']}');
+        return _leaveRequestFromFirestore(doc);
+      }).toList();
+      
+      // Filter for pending status
+      final pendingRequests = allRequests.where((r) => r.status == LeaveStatus.pending).toList();
+      
+      // Sort by createdAt descending
+      pendingRequests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      debugPrint('Found ${pendingRequests.length} pending leave requests');
+      return pendingRequests;
+    } catch (e, stackTrace) {
+      debugPrint('Error getting pending leave requests: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   @override
   Future<List<LeaveRequest>> getAllLeaveRequests() async {
+    debugPrint('=== GET ALL LEAVE REQUESTS ===');
     final snapshot = await _leaveRequestsRef
         .orderBy('createdAt', descending: true)
         .get();
+    debugPrint('Found ${snapshot.docs.length} total leave requests');
     return snapshot.docs.map((doc) => _leaveRequestFromFirestore(doc)).toList();
   }
 
@@ -322,6 +353,40 @@ class HRDataSourceImpl implements HRDataSource {
       'rejectedAt': FieldValue.serverTimestamp(),
       'rejectReason': reason,
     });
+  }
+
+  @override
+  Future<LeaveRequest> submitLeaveRequest(LeaveRequest request) async {
+    debugPrint('=== SUBMIT LEAVE REQUEST ===');
+    debugPrint('userId: ${request.userId}');
+    debugPrint('userName: ${request.userName}');
+    debugPrint('type: ${request.type.value}');
+    debugPrint('reason: ${request.reason}');
+    
+    final docRef = await _leaveRequestsRef.add({
+      'userId': request.userId,
+      'userName': request.userName,
+      'type': request.type.value,
+      'startDate': Timestamp.fromDate(request.startDate),
+      'endDate': Timestamp.fromDate(request.endDate),
+      'reason': request.reason,
+      'status': 'PENDING',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    debugPrint('Created leave request with ID: ${docRef.id}');
+
+    return LeaveRequest(
+      id: docRef.id,
+      userId: request.userId,
+      userName: request.userName,
+      type: request.type,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      reason: request.reason,
+      status: LeaveStatus.pending,
+      createdAt: DateTime.now(),
+    );
   }
 
   // Helper to convert Firestore doc to Employee
@@ -763,6 +828,81 @@ class HRDataSourceImpl implements HRDataSource {
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
+  }
+
+  @override
+  Future<List<Salary>> generateMonthlySalaries({
+    required int month,
+    required int year,
+  }) async {
+    debugPrint('=== GENERATING MONTHLY SALARIES for $month/$year ===');
+    
+    // 1. Get all active employees
+    final employees = await getEmployees();
+    final activeEmployees = employees.where((e) => e.status == EmployeeStatus.working).toList();
+    debugPrint('Found ${activeEmployees.length} active employees');
+    
+    // 2. Get all approved leave requests for this month
+    final allLeaves = await getAllLeaveRequests();
+    final approvedLeaves = allLeaves.where((l) => l.status == LeaveStatus.approved).toList();
+    debugPrint('Found ${approvedLeaves.length} approved leave requests');
+    
+    // 3. Calculate salary for each employee
+    final List<Salary> generatedSalaries = [];
+    
+    for (final employee in activeEmployees) {
+      // Get leaves for this employee in this month
+      final employeeLeaves = approvedLeaves.where((l) {
+        if (l.userId != employee.userId && l.userId != employee.id) return false;
+        
+        final monthStart = DateTime(year, month, 1);
+        final monthEnd = DateTime(year, month + 1, 0);
+        return !(l.endDate.isBefore(monthStart) || l.startDate.isAfter(monthEnd));
+      }).toList();
+      
+      // Calculate salary
+      final salary = SalaryCalculator.calculateMonthlySalary(
+        employee: employee,
+        month: month,
+        year: year,
+        approvedLeaves: employeeLeaves,
+        actualWorkingDays: 22, // Default, could be from attendance
+        mealAllowance: employee.phuCap ?? 0,
+      );
+      
+      // Save to Firestore
+      final docRef = await _salariesRef.add({
+        'employeeId': employee.id,
+        'employeeName': employee.hoTen,
+        'month': month,
+        'year': year,
+        'grossSalary': salary.grossSalary,
+        'baseSalary': salary.baseSalary,
+        'mealAllowance': salary.mealAllowance,
+        'transportAllowance': salary.transportAllowance,
+        'performanceBonus': salary.performanceBonus,
+        'overtimeHours': salary.overtimeHours,
+        'overtimePay': salary.overtimePay,
+        'bhxh': salary.bhxh,
+        'bhyt': salary.bhyt,
+        'bhtn': salary.bhtn,
+        'personalTax': salary.personalTax,
+        'standardWorkingDays': salary.standardWorkingDays,
+        'actualWorkingDays': salary.actualWorkingDays,
+        'paidLeaveDays': salary.paidLeaveDays,
+        'unpaidLeaveDays': salary.unpaidLeaveDays,
+        'sickLeaveDays': salary.sickLeaveDays,
+        'netSalary': salary.netSalary,
+        'status': 'PENDING',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      generatedSalaries.add(salary.copyWith(id: docRef.id));
+      debugPrint('Generated salary for ${employee.hoTen}: ${salary.netSalary}');
+    }
+    
+    debugPrint('Generated ${generatedSalaries.length} salary records');
+    return generatedSalaries;
   }
 
   // ==================== EVALUATION IMPLEMENTATIONS ====================

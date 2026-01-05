@@ -34,6 +34,47 @@ class _HRSalaryTabState extends State<HRSalaryTab> {
     ));
   }
 
+  void _showGenerateSalariesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Tạo bảng lương'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Tạo bảng lương cho tháng $_selectedMonth/$_selectedYear?'),
+            SizedBox(height: 12),
+            Text(
+              '• Lương sẽ được tính dựa trên lương cơ bản của nhân viên\n'
+              '• Ngày nghỉ phép có lương sẽ được tính đủ lương\n'
+              '• Ngày nghỉ không lương sẽ bị trừ\n'
+              '• BHXH, BHYT, BHTN và thuế TNCN sẽ được khấu trừ tự động',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.read<HRBloc>().add(HRGenerateSalaries(
+                month: _selectedMonth,
+                year: _selectedYear,
+              ));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Tạo bảng lương'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -136,6 +177,17 @@ class _HRSalaryTabState extends State<HRSalaryTab> {
                         style: TextStyle(
                           fontSize: 14.sp,
                           color: AppColors.textHint,
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      ElevatedButton.icon(
+                        onPressed: () => _showGenerateSalariesDialog(context),
+                        icon: const Icon(Icons.add_chart),
+                        label: const Text('Tạo bảng lương tháng này'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                         ),
                       ),
                     ],

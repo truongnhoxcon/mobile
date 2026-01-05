@@ -156,6 +156,16 @@ class HRRepositoryImpl implements HRRepository {
   }
 
   @override
+  Future<Either<Failure, LeaveRequest>> submitLeaveRequest(LeaveRequest request) async {
+    try {
+      final result = await _dataSource.submitLeaveRequest(request);
+      return Right(result);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể gửi đơn nghỉ phép: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, Employee>> addEmployee({
     required String hoTen,
     required String email,
@@ -228,6 +238,19 @@ class HRRepositoryImpl implements HRRepository {
       return Right(salaries);
     } catch (e) {
       return Left(ServerFailure(message: 'Không thể tải danh sách lương: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Salary>>> generateMonthlySalaries({
+    required int month,
+    required int year,
+  }) async {
+    try {
+      final salaries = await _dataSource.generateMonthlySalaries(month: month, year: year);
+      return Right(salaries);
+    } catch (e) {
+      return Left(ServerFailure(message: 'Không thể tạo bảng lương: $e'));
     }
   }
 

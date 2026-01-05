@@ -87,6 +87,15 @@ class FilesBloc extends Bloc<FilesEvent, FilesState> {
     FilesUploadFile event,
     Emitter<FilesState> emit,
   ) async {
+    // Check if user is logged in
+    if (_currentUserId.isEmpty) {
+      emit(state.copyWith(
+        status: FilesBlocStatus.error,
+        errorMessage: 'Bạn cần đăng nhập để upload file',
+      ));
+      return;
+    }
+
     emit(state.copyWith(status: FilesBlocStatus.uploading, uploadProgress: 0));
 
     try {
@@ -111,13 +120,16 @@ class FilesBloc extends Bloc<FilesEvent, FilesState> {
         stats: stats,
         uploadProgress: 1.0,
       ));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Upload error: $e');
+      print('Stack trace: $stackTrace');
       emit(state.copyWith(
         status: FilesBlocStatus.error,
-        errorMessage: 'Upload thất bại: $e',
+        errorMessage: 'Upload thất bại: ${e.toString()}',
       ));
     }
   }
+
 
   Future<void> _onDeleteFile(
     FilesDeleteFile event,

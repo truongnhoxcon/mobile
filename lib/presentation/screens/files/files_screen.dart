@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
@@ -473,19 +474,23 @@ class _FilesScreenContentState extends State<_FilesScreenContent> {
       if (result != null) {
         final platformFile = result.files.single;
         
-        if (platformFile.path != null) {
-          // Mobile/Desktop with path
-          final file = File(platformFile.path!);
-          context.read<FilesBloc>().add(FilesUploadFile(
-            file: file, 
-            fileName: platformFile.name,
-          ));
-        } else if (platformFile.bytes != null) {
-          // Web (path is null, use bytes)
-          context.read<FilesBloc>().add(FilesUploadFile(
-            bytes: platformFile.bytes,
-            fileName: platformFile.name,
-          ));
+        if (kIsWeb) {
+          // Web: must use bytes, path is not available
+          if (platformFile.bytes != null) {
+            context.read<FilesBloc>().add(FilesUploadFile(
+              bytes: platformFile.bytes,
+              fileName: platformFile.name,
+            ));
+          }
+        } else {
+          // Mobile/Desktop: use file path
+          if (platformFile.path != null) {
+            final file = File(platformFile.path!);
+            context.read<FilesBloc>().add(FilesUploadFile(
+              file: file,
+              fileName: platformFile.name,
+            ));
+          }
         }
       }
     } catch (e) {

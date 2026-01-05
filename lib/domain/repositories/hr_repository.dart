@@ -56,6 +56,9 @@ abstract class HRRepository {
   /// Reject leave request
   Future<Either<Failure, void>> rejectLeaveRequest(String id, String reason);
 
+  /// Submit new leave request
+  Future<Either<Failure, LeaveRequest>> submitLeaveRequest(LeaveRequest request);
+
   /// Add new employee
   Future<Either<Failure, Employee>> addEmployee({
     required String hoTen,
@@ -85,6 +88,12 @@ abstract class HRRepository {
 
   /// Get salaries by period
   Future<Either<Failure, List<Salary>>> getSalaries({int? month, int? year});
+
+  /// Generate monthly salaries for all employees
+  Future<Either<Failure, List<Salary>>> generateMonthlySalaries({
+    required int month,
+    required int year,
+  });
 
   // ==================== EVALUATION METHODS ====================
 

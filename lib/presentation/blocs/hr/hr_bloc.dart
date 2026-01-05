@@ -29,6 +29,7 @@ class HRBloc extends Bloc<HREvent, HRState> {
     // New handlers for Contracts, Salaries, Evaluations
     on<HRLoadContracts>(_onLoadContracts);
     on<HRLoadSalaries>(_onLoadSalaries);
+    on<HRGenerateSalaries>(_onGenerateSalaries);
     on<HRLoadEvaluations>(_onLoadEvaluations);
     on<HRApproveEvaluation>(_onApproveEvaluation);
     on<HRRejectEvaluation>(_onRejectEvaluation);
@@ -477,6 +478,30 @@ class HRBloc extends Bloc<HREvent, HRState> {
       (salaries) => emit(state.copyWith(
         status: HRStatus.loaded,
         salaries: salaries,
+      )),
+    );
+  }
+
+  Future<void> _onGenerateSalaries(
+    HRGenerateSalaries event,
+    Emitter<HRState> emit,
+  ) async {
+    emit(state.copyWith(status: HRStatus.loading));
+
+    final result = await _repository.generateMonthlySalaries(
+      month: event.month,
+      year: event.year,
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: HRStatus.error,
+        errorMessage: failure.message ?? 'Không thể tạo bảng lương',
+      )),
+      (salaries) => emit(state.copyWith(
+        status: HRStatus.actionSuccess,
+        salaries: salaries,
+        successMessage: 'Đã tạo bảng lương cho ${salaries.length} nhân viên',
       )),
     );
   }

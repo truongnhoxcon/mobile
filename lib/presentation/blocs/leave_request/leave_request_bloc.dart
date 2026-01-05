@@ -68,18 +68,23 @@ class LeaveRequestBloc extends Bloc<LeaveRequestEvent, LeaveRequestState> {
       createdAt: DateTime.now(),
     );
 
-    // For now, add locally (in real app, this would call repository.submitLeaveRequest)
-    // TODO: Add submitLeaveRequest method to repository when backend is ready
-    
-    // Simulate success
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    final updatedRequests = [newRequest, ...state.myRequests];
-    emit(state.copyWith(
-      status: LeaveRequestStatus.submitted,
-      myRequests: updatedRequests,
-      successMessage: 'Đã gửi đơn nghỉ phép thành công',
-    ));
+    // Submit to Firebase via repository
+    final result = await _repository.submitLeaveRequest(newRequest);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: LeaveRequestStatus.error,
+        errorMessage: failure.message ?? 'Không thể gửi đơn nghỉ phép',
+      )),
+      (savedRequest) {
+        final updatedRequests = [savedRequest, ...state.myRequests];
+        emit(state.copyWith(
+          status: LeaveRequestStatus.submitted,
+          myRequests: updatedRequests,
+          successMessage: 'Đã gửi đơn nghỉ phép thành công',
+        ));
+      },
+    );
   }
 
   Future<void> _onCancel(

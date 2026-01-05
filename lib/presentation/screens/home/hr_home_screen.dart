@@ -15,6 +15,7 @@ import '../hr/tabs/hr_dashboard_tab.dart';
 import '../hr/tabs/hr_employees_tab.dart';
 import '../hr/tabs/hr_departments_tab.dart';
 import '../hr/tabs/hr_leaves_tab.dart';
+import '../hr/tabs/hr_salary_tab.dart';
 import '../chat/chat_list_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -107,7 +108,7 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
 
   Widget _buildHRDashboard() {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         children: [
           Container(
@@ -117,11 +118,13 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,
               isScrollable: false,
+              labelPadding: EdgeInsets.zero,
               tabs: const [
-                Tab(text: 'Tổng quan', icon: Icon(Icons.dashboard)),
-                Tab(text: 'Nhân viên', icon: Icon(Icons.people)),
-                Tab(text: 'Phòng ban', icon: Icon(Icons.business)),
-                Tab(text: 'Nghỉ phép', icon: Icon(Icons.event_busy)),
+                Tab(icon: Icon(Icons.dashboard, size: 20), text: 'Tổng quan'),
+                Tab(icon: Icon(Icons.people, size: 20), text: 'NV'),
+                Tab(icon: Icon(Icons.business, size: 20), text: 'PB'),
+                Tab(icon: Icon(Icons.event_busy, size: 20), text: 'Phép'),
+                Tab(icon: Icon(Icons.paid, size: 20), text: 'Lương'),
               ],
             ),
           ),
@@ -132,6 +135,7 @@ class _HRHomeScreenState extends State<HRHomeScreen> {
                 HREmployeesTab(),
                 HRDepartmentsTab(),
                 HRLeavesTab(),
+                HRSalaryTab(),
               ],
             ),
           ),

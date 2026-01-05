@@ -188,6 +188,17 @@ class HRLoadSalaries extends HREvent {
   List<Object?> get props => [month, year];
 }
 
+/// Generate Monthly Salaries
+class HRGenerateSalaries extends HREvent {
+  final int month;
+  final int year;
+
+  const HRGenerateSalaries({required this.month, required this.year});
+
+  @override
+  List<Object?> get props => [month, year];
+}
+
 // ==================== EVALUATION EVENTS ====================
 
 /// Load Evaluations List
