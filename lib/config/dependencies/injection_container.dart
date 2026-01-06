@@ -23,7 +23,7 @@ import '../../presentation/blocs/blocs.dart';
 final sl = GetIt.instance;
 
 // TODO: Replace with your Groq API key from https://console.groq.com/keys
-const String _groqApiKey = 'xxxxx';
+const String _groqApiKey = 'xxxx';
 
 Future<void> init() async {
   //===========================================================================

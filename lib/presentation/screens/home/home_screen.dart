@@ -108,45 +108,53 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: PastelBackground(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            _loadTodayAttendance();
-          },
-          color: AppColors.primary,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                // Gradient Header
-                GradientHeader(
-                  displayName: displayName,
-                  avatarUrl: avatarUrl,
-                  notificationCount: 2,
-                  onNotificationTap: () {
-                     context.push(AppRoutes.notifications);
-                  },
-                ),
-                
-                Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Stats Row
-                      _buildStatsRow(),
-                      SizedBox(height: 16.h),
-                      
-                      // Attendance Card
-                      _buildAttendanceCard(),
-                      SizedBox(height: 16.h),
-                      
-                      // Priority Tasks
-                      _buildPriorityTasks(),
-                    ],
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => context.push(AppRoutes.aiChat),
+            backgroundColor: AppColors.primary,
+            child: const Icon(Icons.smart_toy, color: Colors.white),
+          ),
+          body: RefreshIndicator(
+            onRefresh: () async {
+              _loadTodayAttendance();
+            },
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // Gradient Header
+                  GradientHeader(
+                    displayName: displayName,
+                    avatarUrl: avatarUrl,
+                    notificationCount: 2,
+                    onNotificationTap: () {
+                       context.push(AppRoutes.notifications);
+                    },
                   ),
-                ),
-                SizedBox(height: 80.h), // Space for bottom nav
-              ],
+                  
+                  Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Stats Row
+                        _buildStatsRow(),
+                        SizedBox(height: 16.h),
+                        
+                        // Attendance Card
+                        _buildAttendanceCard(),
+                        SizedBox(height: 16.h),
+                        
+                        // Priority Tasks
+                        _buildPriorityTasks(),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 80.h), // Space for bottom nav
+                ],
+              ),
             ),
           ),
         ),
